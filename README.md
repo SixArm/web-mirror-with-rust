@@ -138,3 +138,8 @@ cargo audit                    # security advisories
 
 The specification, [spec/index.md](spec/index.md), is the single source of
 truth. Contributors and AI agents: read [AGENTS.md](AGENTS.md).
+
+## License
+
+`MIT OR Apache-2.0 OR GPL-2.0-only OR GPL-3.0-only OR BSD-3-Clause`, at your
+option, or contact us for other terms. See [LICENSE.md](LICENSE.md).
