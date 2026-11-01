@@ -1,0 +1,87 @@
+{
+  "name": "web-mirror",
+  "description": "Rust command line tool and library that mirrors a section of a website to disk, like `wget --mirror`, with safe defaults.",
+  "repository": "https://github.com/SixArm/web-mirror-with-rust",
+  "language": "Rust",
+  "rust_version": "1.85",
+  "version": "0.1.0",
+  "usage": "web-mirror [OPTIONS] [URL]",
+  "examples": [
+    {
+      "command": "web-mirror \"https://www.nhs.uk/conditions/\" --level 1 --link-selector main",
+      "result": "The A–Z page and every page linked from its main content."
+    },
+    {
+      "command": "web-mirror \"https://example.com/reports/\" --accept pdf",
+      "result": "Only the PDFs below the start URL; pages are crawled but not saved."
+    },
+    {
+      "command": "web-mirror \"https://example.com/docs/\" --timestamping",
+      "result": "Refresh a mirror, downloading only pages newer on the server."
+    },
+    {
+      "command": "web-mirror \"https://example.com/docs/\" --spider --rejected-log rejected.tsv",
+      "result": "Check links without saving; log why URLs were skipped."
+    }
+  ],
+  "defaults": [
+    "Never goes above the start URL",
+    "Never downloads a file twice (existing files are read for links)",
+    "Obeys robots.txt and Crawl-delay",
+    "Follows URLs in HTML only (JavaScript with --follow-js)",
+    "Sequential requests",
+    "At most 1 GiB per file (--max-file-size)",
+    "At most 20 redirects, only within the start URLs' sites"
+  ],
+  "exit_codes": {
+    "0": "success",
+    "1": "fatal error",
+    "2": "finished, but some URLs failed"
+  },
+  "docs": {
+    "readme": "README.md",
+    "specification": "spec/index.md",
+    "compare_wget": "spec/compare/wget/index.md",
+    "agents": "AGENTS.md",
+    "llms_txt": "llms.txt"
+  },
+  "tests": [
+    {
+      "start_url": "https://www.nhs.uk/conditions/",
+      "options": [
+        "--level",
+        "1",
+        "--link-selector",
+        "main"
+      ],
+      "expected": "spec/tests/www.nhs.uk/conditions/output.txt"
+    },
+    {
+      "start_url": "https://www.nhs.uk/medicines/",
+      "options": [
+        "--level",
+        "1",
+        "--link-selector",
+        "main"
+      ],
+      "expected": "spec/tests/www.nhs.uk/medicines/output.txt"
+    },
+    {
+      "start_url": "https://www.nhs.uk/mental-health/conditions/",
+      "options": [
+        "--level",
+        "1",
+        "--link-selector",
+        "main p"
+      ],
+      "expected": "spec/tests/www.nhs.uk/mental-health/conditions/output.txt"
+    }
+  ],
+  "commands": {
+    "build": "cargo build",
+    "test": "cargo test",
+    "test_network": "cargo test -- --ignored",
+    "lint": "cargo clippy --all-targets",
+    "audit": "cargo audit && cargo deny check advisories"
+  }
+}

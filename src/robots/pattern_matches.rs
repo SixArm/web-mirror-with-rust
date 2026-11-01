@@ -1,4 +1,11 @@
 /// Does `pattern` match the start of `path`? (`*` wildcard, trailing `$` anchor.)
+///
+/// Patterns are prefixes: `/a` matches `/a`, `/a/b`, and `/ab`, as in
+/// RFC 9309. `*` matches any run of bytes. A `$` at the very end means the
+/// path must end there. Matching is byte-wise and case-sensitive.
+///
+/// The algorithm keeps one backtracking point (the last `*`), so it runs in
+/// O(pattern × path) time at worst, with no recursion, whatever the pattern.
 pub fn pattern_matches(pattern: &str, path: &str) -> bool {
     let (pattern, anchored) = match pattern.strip_suffix('$') {
         Some(p) => (p, true),
@@ -12,6 +19,8 @@ pub fn pattern_matches(pattern: &str, path: &str) -> bool {
     let mut star: Option<(usize, usize)> = None;
     loop {
         if pi == p.len() {
+            // The whole pattern matched. Unanchored, that is enough (a prefix
+            // match); anchored, the path must be used up too.
             if !anchored || si == s.len() {
                 return true;
             }
@@ -24,6 +33,7 @@ pub fn pattern_matches(pattern: &str, path: &str) -> bool {
             si += 1;
             continue;
         }
+        // Mismatch: let the last `*` swallow one more byte and try again.
         match star {
             Some((spi, ssi)) if ssi < s.len() => {
                 star = Some((spi, ssi + 1));

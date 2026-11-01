@@ -1,0 +1,24 @@
+# web-mirror
+
+> Rust command line tool and library that mirrors a section of a website to disk, like `wget --mirror`, with safe defaults: never goes above the start URL, never downloads a file twice, obeys robots.txt, and never writes outside the output directory.
+
+Usage: `web-mirror [OPTIONS] [URL]`. Example: `web-mirror "https://www.nhs.uk/conditions/" --level 1 --link-selector main` saves the A–Z page and every page linked from its main content as `www.nhs.uk/conditions/.../index.html`. Exit codes: 0 success, 1 fatal error, 2 some URLs failed.
+
+## Docs
+
+- [README](README.md): overview, install, examples, options summary, library use
+- [Specification](spec/index.md): exact behavior of every option, URL-to-file mapping, robots.txt, security guarantees, tests (single source of truth)
+- [Compare wget](spec/compare/wget/index.md): wget options and their web-mirror equivalents
+- [AGENTS.md](AGENTS.md): conventions, commands, and security rules for contributors and AI agents
+
+## Tests
+
+- [Network tests must use ignore](spec/tests/integration-network-tests-must-use-ignore/index.md): rule for live-site tests
+- [NHS conditions](spec/tests/www.nhs.uk/conditions/output.txt): expected files for `--level 1 --link-selector main`
+- [NHS medicines](spec/tests/www.nhs.uk/medicines/output.txt): expected files for `--level 1 --link-selector main`
+- [NHS mental health conditions](spec/tests/www.nhs.uk/mental-health/conditions/output.txt): expected files for `--level 1 --link-selector "main p"`
+
+## Optional
+
+- [Cargo.toml](Cargo.toml): dependencies and minimum Rust version
+- [src/lib.rs](src/lib.rs): library entry point and source layout

@@ -7,6 +7,10 @@ static JS_URL: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"["']((?:https?:)?//[^"'\s\\<>]+|/[^"'\s\\<>/][^"'\s\\<>]*)["']"#).unwrap()
 });
 
+/// Every quoted URL-looking string in `js`, in order, without the quotes.
+///
+/// The `regex` crate runs in linear time, so hostile JavaScript cannot make
+/// this slow.
 pub fn from_js_str_into_url_str_list(js: &str) -> Vec<String> {
     JS_URL.captures_iter(js).map(|c| c[1].to_string()).collect()
 }

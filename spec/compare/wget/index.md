@@ -29,16 +29,16 @@ Logging and input file:
 | -a, --append-output=FILE | --log-file-append | log messages to FILE by appending the file              |
 | -nv, --no-verbose        | 🛇                 | turn off verboseness, without being quiet              |
 | --report-speed=TYPE      | 🛇                 | output bandwidth as TYPE. TYPE can be bits             |
-| -i, --input-file=FILE    | ?                 | download URLs found in local or external FILE          |
+| -i, --input-file=FILE    | -i, --input-file  | download URLs found in local or external FILE          |
 | -F, --force-html         | 🛇                 | treat input file as HTML                               |
 | -B, --base=URL           | ?                 | resolves HTML input-file links (-i -F) relative to URL |
-| --rejected-log=FILE      | ?                 | log reasons for URL rejection to FILE                  |
+| --rejected-log=FILE      | --rejected-log    | log reasons for URL rejection to FILE                  |
 
 Download:
 
 | wget option                  | web-mirror option | purpose                                                                                                                                                       |
 | ---------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| -t, --tries=NUMBER           |                   | set number of retries to NUMBER (0 unlimits)                                                                                                                  |
+| -t, --tries=NUMBER           | -t, --tries       | set number of retries to NUMBER (0 unlimits)                                                                                                                  |
 | --retry-connrefused          |                   | retry even if connection is refused                                                                                                                           |
 | --retry-on-host-error        |                   | consider host errors as non-fatal, transient errors                                                                                                           |
 | --retry-on-http-error=ERRORS |                   | comma-separated list of HTTP errors to retry                                                                                                                  |
@@ -49,20 +49,20 @@ Download:
 | --start-pos=OFFSET           |                   | start downloading from zero-based position OFFSET                                                                                                             |
 | --progress=TYPE              |                   | select progress gauge type                                                                                                                                    |
 | --show-progress              |                   | display the progress bar in any verbosity mode                                                                                                                |
-| -N, --timestamping           |                   | don't re-retrieve files unless newer than local                                                                                                               |
+| -N, --timestamping           | -N, --timestamping| don't re-retrieve files unless newer than local                                                                                                               |
 | --no-if-modified-since       |                   | don't use conditional if-modified-since get requests in timestamping mode                                                                                     |
 | --no-use-server-timestamps   |                   | don't set the local file's timestamp by the one on the server                                                                                                 |
 | -S, --server-response        |                   | print server response                                                                                                                                         |
-| --spider                     |                   | don't download anything                                                                                                                                       |
-| -T, --timeout=SECONDS        |                   | set all timeout values to SECONDS                                                                                                                             |
+| --spider                     | --spider          | don't download anything                                                                                                                                       |
+| -T, --timeout=SECONDS        | -T, --timeout     | set all timeout values to SECONDS                                                                                                                             |
 | --dns-timeout=SECS           |                   | set the DNS lookup timeout to SECS                                                                                                                            |
 | --connect-timeout=SECS       |                   | set the connect timeout to SECS                                                                                                                               |
 | --read-timeout=SECS          |                   | set the read timeout to SECS                                                                                                                                  |
-| -w, --wait=SECONDS           |                   | wait SECONDS between retrievals (applies if more then 1 URL is to be retrieved)                                                                               |
+| -w, --wait=SECONDS           | -w, --wait        | wait SECONDS between retrievals (applies if more then 1 URL is to be retrieved)                                                                               |
 | --waitretry=SECONDS          |                   | wait 1..SECONDS between retries of a retrieval (applies if more then 1 URL is to be retrieved)                                                                |
-| --random-wait                |                   | wait from 0.5*WAIT...1.5*WAIT secs between retrievals (applies if more then 1 URL is to be retrieved)                                                         |
+| --random-wait                | --wait-jitter     | wait from 0.5*WAIT...1.5*WAIT secs between retrievals (applies if more then 1 URL is to be retrieved)                                                         |
 | --no-proxy                   |                   | explicitly turn off proxy                                                                                                                                     |
-| -Q, --quota=NUMBER           |                   | set retrieval quota to NUMBER                                                                                                                                 |
+| -Q, --quota=NUMBER           | -Q, --quota       | set retrieval quota to NUMBER                                                                                                                                 |
 | --bind-address=ADDRESS       |                   | bind to ADDRESS (hostname or IP) on local host                                                                                                                |
 | --limit-rate=RATE            | --rate-limit     | limit download rate to RATE                                                                                                                                   |
 | --no-dns-cache               |                   | disable caching DNS lookups                                                                                                                                   |
@@ -86,10 +86,10 @@ Directories:
 | ---------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | -nd, --no-directories || don't create directories
 | -x, --force-directories || force creation of directories
-| -nH, --no-host-directories || don't create host directories
+| -nH, --no-host-directories | --no-host-directories | don't create host directories
 | --protocol-directories || use protocol name in directories
-| -P, --directory-prefix=PREFIX || save files to PREFIX/..
-| --cut-dirs=NUMBER || ignore NUMBER remote directory components
+| -P, --directory-prefix=PREFIX | -P, --directory-prefix | save files to PREFIX/..
+| --cut-dirs=NUMBER | --cut-dirs | ignore NUMBER remote directory components
 
 HTTP options:
 | wget option                  | web-mirror option | purpose                                                                                                                                                       |
@@ -97,17 +97,17 @@ HTTP options:
 | --http-user=USER || set http user to USER
 | --http-password=PASS || set http password to PASS
 | --no-cache || disallow server-cached data
-| --default-page=NAME || change the default page name (normally this is 'index.html'.)
+| --default-page=NAME | --default-page | change the default page name (normally this is 'index.html'.)
 | -E, --adjust-extension || save HTML/CSS documents with proper extensions
 | --ignore-length || ignore 'Content-Length' header field
-| --header=STRING || insert STRING among the headers
+| --header=STRING | --header | insert STRING among the headers
 | --compression=TYPE || choose compression, one of auto, gzip and none. (default: none)
-| --max-redirect || maximum redirections allowed per page
+| --max-redirect | --max-redirect | maximum redirections allowed per page
 | --proxy-user=USER || set USER as proxy username
 | --proxy-password=PASS || set PASS as proxy password
-| --referer=URL || include 'Referer: URL' header in HTTP request
+| --referer=URL | --referer | include 'Referer: URL' header in HTTP request
 | --save-headers || save the HTTP headers to file
-| -U, --user-agent=AGENT || identify as AGENT instead of Wget/VERSION
+| -U, --user-agent=AGENT | -U, --user-agent | identify as AGENT instead of Wget/VERSION
 | --no-http-keep-alive || disable HTTP keep-alive (persistent connections)
 | --no-cookies || don't use cookies
 | --load-cookies=FILE || load cookies from FILE before session
@@ -145,7 +145,7 @@ Recursive download:
 | wget option                  | web-mirror option | purpose                                                                                                                                                       |
 | ---------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | -r, --recursive || specify recursive download
-| -l, --level=NUMBER || maximum recursion depth (inf or 0 for infinite)
+| -l, --level=NUMBER | -l, --level | maximum recursion depth (inf or 0 for infinite)
 | --delete-after || delete files locally after downloading them
 | -k, --convert-links || make links in downloaded HTML or CSS point to local files
 | --convert-file-only || convert the file part of the URLs only (usually known as the basename)
@@ -159,10 +159,10 @@ Recursive accept/reject:
 
 | wget option                  | web-mirror option | purpose                                                                                                                                                       |
 | ---------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| -A, --accept=LIST || comma-separated list of accepted extensions
-| -R, --reject=LIST || comma-separated list of rejected extensions
-| --accept-regex=REGEX || regex matching accepted URLs
-| --reject-regex=REGEX || regex matching rejected URLs
+| -A, --accept=LIST | -A, --accept | comma-separated list of accepted extensions
+| -R, --reject=LIST | -R, --reject | comma-separated list of rejected extensions
+| --accept-regex=REGEX | --accept-regex | regex matching accepted URLs
+| --reject-regex=REGEX | --reject-regex | regex matching rejected URLs
 | --regex-type=TYPE || regex type (posix)
 | -D, --domains=LIST || comma-separated list of accepted domains
 | --exclude-domains=LIST || comma-separated list of rejected domains
@@ -171,7 +171,7 @@ Recursive accept/reject:
 | --ignore-tags=LIST || comma-separated list of ignored HTML tags
 | -H, --span-hosts || go to foreign hosts when recursive
 | -L, --relative || follow relative links only
-| -I, --include-directories=LIST || list of allowed directories
+| -I, --include-directories=LIST | -I, --include-directories | list of allowed directories
 | --trust-server-names || use the name specified by the redirection URL's last component
-| -X, --exclude-directories=LIST || list of excluded directories
-| -np, --no-parent || don't ascend to the parent directory
+| -X, --exclude-directories=LIST | -X, --exclude-directories | list of excluded directories
+| -np, --no-parent | always on (scope) | don't ascend to the parent directory

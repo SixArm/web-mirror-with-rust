@@ -7,10 +7,17 @@
 use crate::app::app::App;
 use crate::error::error::Error;
 use crate::types::url_string::UrlString;
+use crate::app::from_input_file_into_url_list::from_input_file_into_url_list;
+use crate::filter::url_filter::UrlFilter;
+use crate::http::from_str_into_header_pair::from_str_into_header_pair;
+use crate::url::from_str_into_safe_segment::from_str_into_safe_segment;
 use crate::url::from_str_into_start_url::from_str_into_start_url;
 use std::path::PathBuf;
 use std::time::Duration;
 
+/// The command line arguments, as parsed and before validation.
+///
+/// [`Args::into_app`] checks them and turns them into an [`App`].
 #[derive(Debug)]
 pub struct Args {
     /// Test flag that sets whether the app prints diagnostics.
@@ -31,7 +38,7 @@ pub struct Args {
     pub log_file_append: Option<PathBuf>,
 
     /// Start URL; only URLs at or below it are mirrored.
-    /// Example: "https://www.nhs.uk/conditions/"
+    /// Example: `"https://www.nhs.uk/conditions/"`
     pub url: UrlString,
 
     /// Seconds to wait between retrievals.
@@ -55,6 +62,60 @@ pub struct Args {
 
     /// Re-download files that already exist locally.
     pub force: bool,
+
+    /// Re-download existing files only when the server's copy is newer.
+    pub timestamping: bool,
+
+    /// Stop after downloading this many bytes in total; 0 is unlimited.
+    pub quota: u64,
+
+    /// Refuse any one file larger than this many bytes; 0 is unlimited.
+    pub max_file_size: u64,
+
+    /// Read more start URLs from this file, one per line; "-" is stdin.
+    pub input_file: Option<PathBuf>,
+
+    /// Crawl and check links, but do not save anything.
+    pub spider: bool,
+
+    /// Write rejected URLs, and why, to this file.
+    pub rejected_log: Option<PathBuf>,
+
+    /// File name suffixes or wildcard patterns to keep. Example: ["pdf"]
+    pub accept: Vec<String>,
+
+    /// File name suffixes or wildcard patterns to skip. Example: ["jpg", "png"]
+    pub reject: Vec<String>,
+
+    /// Regular expression that every followed URL must match.
+    pub accept_regex: Option<String>,
+
+    /// Regular expression that no followed URL may match.
+    pub reject_regex: Option<String>,
+
+    /// Directories to follow; others are skipped. Example: ["/conditions/acne"]
+    pub include_directories: Vec<String>,
+
+    /// Directories to skip. Example: ["/conditions/print"]
+    pub exclude_directories: Vec<String>,
+
+    /// Do not put files under a directory named for the host.
+    pub no_host_directories: bool,
+
+    /// Leading path directories to drop from local file paths.
+    pub cut_dirs: usize,
+
+    /// File name for a URL that names a directory.
+    pub default_page: String,
+
+    /// Extra request headers. Example: ["Accept-Language: en-GB"]
+    pub headers: Vec<String>,
+
+    /// `Referer` header for every request.
+    pub referer: Option<String>,
+
+    /// Maximum redirects to follow per request.
+    pub max_redirect: usize,
 
     /// Also follow URL-looking strings found in JavaScript.
     pub follow_js: bool,
@@ -91,6 +152,24 @@ impl std::default::Default for Args {
             number_limit: 0,
             rate_limit: 0,
             force: false,
+            timestamping: false,
+            quota: 0,
+            max_file_size: crate::app::app::DEFAULT_MAX_FILE_SIZE,
+            input_file: None,
+            spider: false,
+            rejected_log: None,
+            accept: Vec::new(),
+            reject: Vec::new(),
+            accept_regex: None,
+            reject_regex: None,
+            include_directories: Vec::new(),
+            exclude_directories: Vec::new(),
+            no_host_directories: false,
+            cut_dirs: 0,
+            default_page: "index.html".to_string(),
+            headers: Vec::new(),
+            referer: None,
+            max_redirect: 20,
             follow_js: false,
             link_selector: None,
             ignore_robots: false,
@@ -107,7 +186,44 @@ impl Args {
         if !self.wait.is_finite() || self.wait < 0.0 {
             return Err(Error::Argument("--wait must be a number >= 0".into()));
         }
-        let mut app = App::new(from_str_into_start_url(&self.url)?);
+        let mut starts: Vec<::url::Url> = Vec::new();
+        if !self.url.is_empty() {
+            starts.push(from_str_into_start_url(&self.url)?);
+        }
+        if let Some(path) = &self.input_file {
+            starts.extend(from_input_file_into_url_list(path)?);
+        }
+        if starts.is_empty() {
+            return Err(Error::Argument("give a start URL, or --input-file with at least one URL".into()));
+        }
+        let mut app = App::new(starts.remove(0));
+        app.extra_starts = starts;
+        app.no_host_directories = self.no_host_directories;
+        app.cut_dirs = self.cut_dirs;
+        app.default_page = from_str_into_default_page(&self.default_page)?;
+        app.quota = self.quota;
+        app.max_file_size = self.max_file_size;
+        app.timestamping = self.timestamping;
+        app.spider = self.spider;
+        app.rejected_log = self.rejected_log;
+        app.filter = UrlFilter {
+            accept: from_list_into_patterns(self.accept),
+            reject: from_list_into_patterns(self.reject),
+            accept_regex: from_option_str_into_regex("--accept-regex", self.accept_regex.as_deref())?,
+            reject_regex: from_option_str_into_regex("--reject-regex", self.reject_regex.as_deref())?,
+            include_directories: from_list_into_patterns(self.include_directories),
+            exclude_directories: from_list_into_patterns(self.exclude_directories),
+            default_page: app.default_page.clone(),
+        };
+        for header in &self.headers {
+            app.headers.push(from_str_into_header_pair(header).map_err(Error::Argument)?);
+        }
+        if let Some(referer) = &self.referer {
+            let url = ::url::Url::parse(referer)
+                .map_err(|source| Error::Url { input: referer.clone(), source })?;
+            app.referer = Some(url);
+        }
+        app.max_redirect = self.max_redirect;
         app.output_dir = self.directory_prefix;
         app.wait = self.wait;
         app.wait_jitter = self.wait_jitter;
@@ -129,6 +245,28 @@ impl Args {
         app.timeout = Duration::from_secs(self.timeout);
         Ok(app)
     }
+}
+
+/// Trim list entries (from comma-separated options) and drop empty ones.
+fn from_list_into_patterns(list: Vec<String>) -> Vec<String> {
+    list.into_iter().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+}
+
+/// Compile an optional regular expression option, naming the option on error.
+fn from_option_str_into_regex(option: &str, text: Option<&str>) -> Result<Option<::regex::Regex>, Error> {
+    text.map(|t| {
+        ::regex::Regex::new(t).map_err(|e| Error::Argument(format!("{option} {t:?} is not a valid regex: {e}")))
+    })
+    .transpose()
+}
+
+/// `--default-page` must be one plain file name, so it can never point
+/// outside the directory it is written in.
+fn from_str_into_default_page(name: &str) -> Result<String, Error> {
+    if name.is_empty() || name == "." || name == ".." || from_str_into_safe_segment(name) != name {
+        return Err(Error::Argument(format!("--default-page {name:?} must be a plain file name")));
+    }
+    Ok(name.to_string())
 }
 
 #[cfg(test)]
@@ -166,6 +304,64 @@ mod tests {
         let mut a = args();
         a.link_selector = Some("main[[".into());
         assert!(a.into_app().is_err());
+    }
+
+    #[test]
+    fn start_url_or_input_file_is_needed() {
+        let a = Args { url: "".into(), ..Args::default() };
+        assert!(a.into_app().is_err());
+    }
+
+    #[test]
+    fn input_file_adds_starts() {
+        let dir = crate::app::testing::temp_dir("args-input-file");
+        let path = dir.join("urls.txt");
+        std::fs::write(&path, "https://example.com/b/
+https://example.com/c/
+").unwrap();
+        let app = Args { input_file: Some(path.clone()), ..args() }.into_app().unwrap();
+        assert_eq!(app.start.as_str(), "https://example.com/a/");
+        assert_eq!(app.extra_starts.len(), 2);
+        let app = Args { url: "".into(), input_file: Some(path), ..Args::default() }.into_app().unwrap();
+        assert_eq!(app.start.as_str(), "https://example.com/b/");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn filters_are_validated() {
+        let app = Args {
+            accept: vec![" pdf ".into(), "".into()],
+            accept_regex: Some("/a/".into()),
+            ..args()
+        }
+        .into_app()
+        .unwrap();
+        assert_eq!(app.filter.accept, ["pdf"]);
+        assert!(app.filter.accept_regex.is_some());
+        assert!(Args { reject_regex: Some("(".into()), ..args() }.into_app().is_err());
+    }
+
+    #[test]
+    fn default_page_must_be_a_plain_name() {
+        assert_eq!(Args { default_page: "home.htm".into(), ..args() }.into_app().unwrap().default_page, "home.htm");
+        for bad in ["", ".", "..", "a/b", "..\\x", "a:b"] {
+            assert!(Args { default_page: bad.into(), ..args() }.into_app().is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn headers_and_referer_are_validated() {
+        let app = Args {
+            headers: vec!["X-A: 1".into()],
+            referer: Some("https://example.com/".into()),
+            ..args()
+        }
+        .into_app()
+        .unwrap();
+        assert_eq!(app.headers.len(), 1);
+        assert!(app.referer.is_some());
+        assert!(Args { headers: vec!["nope".into()], ..args() }.into_app().is_err());
+        assert!(Args { referer: Some("not a url".into()), ..args() }.into_app().is_err());
     }
 
     #[test]

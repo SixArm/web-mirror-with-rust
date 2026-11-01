@@ -10,15 +10,22 @@ use crate::robots::from_text_and_user_agent_into_robots::from_text_and_user_agen
 use crate::robots::is_allowed::is_allowed;
 use ::url::Url;
 
+/// The `robots.txt` rules that apply to our crawler. The default (no rules)
+/// allows everything.
 #[derive(Debug, Clone, Default)]
 pub struct Robots {
+    /// The `Allow` and `Disallow` rules from the groups that apply to us.
     pub(crate) rules: Vec<Rule>,
+    /// The largest `Crawl-delay` in those groups, in seconds.
     pub(crate) crawl_delay: Option<f64>,
 }
 
+/// One `Allow` or `Disallow` line.
 #[derive(Debug, Clone)]
 pub struct Rule {
+    /// `true` for `Allow`, `false` for `Disallow`.
     pub allow: bool,
+    /// The path pattern, such as `/private/` or `/*.pdf$`.
     pub pattern: String,
 }
 
@@ -38,6 +45,7 @@ impl Robots {
         self.crawl_delay
     }
 
+    /// May we fetch `url`? See [`crate::robots::is_allowed::is_allowed`].
     pub fn is_allowed(&self, url: &Url) -> bool {
         is_allowed(self, url)
     }

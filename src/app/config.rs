@@ -10,8 +10,10 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Settings from the configuration file (not loaded by the tool yet).
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Config {
+    /// The configuration format version.
     pub version: u8,
 }
 

@@ -25,10 +25,14 @@ pub async fn run() -> ExitCode {
     match result {
         Ok(stats) => {
             log::info!(
-                "done: {} downloaded, {} read from disk, {} blocked by robots.txt, {} failed",
+                "done: {} downloaded ({} bytes), {} read from disk, {} unchanged, \
+                 {} blocked by robots.txt, {} rejected by filters, {} failed",
                 stats.downloaded,
+                stats.bytes_downloaded,
                 stats.from_disk,
+                stats.not_modified,
                 stats.blocked,
+                stats.rejected,
                 stats.failed
             );
             if stats.failed > 0 { ExitCode::from(2) } else { ExitCode::SUCCESS }

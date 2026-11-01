@@ -4,6 +4,8 @@ use ::url::Url;
 /// that is not http(s) (`mailto:`, `javascript:`, `data:`) is dropped.
 pub fn from_url_str_list_and_base_url_into_url_list(raw: &[String], base: &Url) -> Vec<Url> {
     raw.iter()
+        // `join` resolves relative links, `.` and `..`, and percent-encodes
+        // anything unsafe; links that do not parse are skipped.
         .filter_map(|r| base.join(r.trim()).ok())
         .filter(|u| matches!(u.scheme(), "http" | "https"))
         .map(|mut u| {

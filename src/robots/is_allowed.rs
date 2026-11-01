@@ -8,6 +8,8 @@ pub fn is_allowed(robots: &Robots, url: &Url) -> bool {
     if url.path() == "/robots.txt" {
         return true;
     }
+    // Rules match the path plus the query, exactly as the URL has it
+    // (percent-encoded the way the `url` crate writes it).
     let mut target = url.path().to_string();
     if let Some(q) = url.query() {
         target.push('?');
@@ -25,6 +27,7 @@ pub fn is_allowed(robots: &Robots, url: &Url) -> bool {
             _ => Some(rule),
         };
     }
+    // No matching rule at all means allowed.
     best.is_none_or(|r| r.allow)
 }
 
