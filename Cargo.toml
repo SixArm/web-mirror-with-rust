@@ -1,0 +1,24 @@
+[package]
+name = "web-mirror"
+version = "0.1.0"
+edition = "2024"
+description = "Mirror a website section to disk, like `wget --mirror`"
+
+[lib]
+# src/types/ has illustrative (non-runnable) doc examples.
+doctest = false
+
+[dependencies]
+thiserror = "*"
+clap = { version = "*", features = ["derive"] }
+confy = "*"
+spider = { version = "2.53", features = ["regex"] }
+scraper = "*"
+env_logger = "0.11"
+log = "*"
+tokio = { version = "*", features = ["rt-multi-thread", "macros", "time", "fs"] }
+url = "*"
+# Additions beyond the spec's stack: JS-URL heuristic (--follow-js), --wait-jitter randomness.
+regex = "*"
+fastrand = "*"
+serde = { version = "1.0.229", features = ["derive"] }
