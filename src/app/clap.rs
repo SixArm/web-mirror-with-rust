@@ -36,7 +36,7 @@ pub fn app() -> Command {
         )
         .arg(
             Arg::new("test")
-                .help("Print test output for debugging, verifying, tracing, and the like.\nExample: --test")
+                .help("Print the parsed arguments and log level to standard output, then run as usual, for debugging.\nExample: --test")
                 .long("test")
                 .action(ArgAction::SetTrue),
         )

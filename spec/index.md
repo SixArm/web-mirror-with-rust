@@ -59,7 +59,9 @@ Modeled on `wget`:
 
 - `-v`, `--verbose`: repeat to set the log level: `-v` error, `-vv` warn, `-vvv`
   info, `-vvvv` debug, `-vvvvv` trace (default: `RUST_LOG`, else info)
-- `--test`: print the parsed arguments, for debugging
+- `--test`: print the parsed arguments and log level to standard output, then
+  run as usual, for debugging
+- `-h`, `--help` and `-V`, `--version`: print help or the version and exit
 - `-w`, `--wait=SECONDS`: wait SECONDS between retrievals (network only; reading
   from disk is not delayed)
 - `--wait-jitter`: wait from 0.5*WAIT...1.5*WAIT seconds between retrievals

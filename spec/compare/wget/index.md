@@ -1,8 +1,9 @@
 # Compare wget
 
-Summary of the most-used mirroring options. Planned options are proposed in
-`spec/proposals/index.md` and scheduled in `plan.md`; the wider tool landscape
-is in `spec/compare/index.md`.
+Summary of the most-used mirroring options, then every wget option by
+section, then web-mirror options with no wget equivalent. New behavior is
+proposed in `spec/proposals/index.md` (none open) and scheduled in `plan.md`;
+the wider tool landscape is in `spec/compare/index.md`.
 
 | wget option         | web-mirror option            |
 | ------------------- | ---------------------------- |
@@ -189,3 +190,23 @@ Recursive accept/reject:
 | --trust-server-names || use the name specified by the redirection URL's last component
 | -X, --exclude-directories=LIST | -X, --exclude-directories | list of excluded directories
 | -np, --no-parent | always on (scope) | don't ascend to the parent directory
+
+web-mirror options with no wget equivalent:
+
+| web-mirror option | purpose |
+| ----------------- | ------- |
+| -n, --number-limit | stop after N URLs (an interrupted crawl resumes) |
+| --max-time | stop starting new requests after a duration |
+| --max-file-size | skip any one file larger than SIZE (default 1g) |
+| --link-selector | follow only links inside elements matching a CSS selector |
+| --sitemap | also crawl URLs from the sites' sitemaps |
+| --follow-js | also follow URL-looking strings in JavaScript |
+| --accept-mime, --reject-mime | filter by Content-Type before the body is read |
+| --strip-query-params, --sort-query, --ignore-query | one spelling per URL |
+| --ignore-robots | wget's `-e robots=off` |
+| --events | JSON Lines for every URL handled, then a summary |
+| --ignore-file | regexes re-read during the crawl (from grab-site) |
+| --check-external | check links to other sites (with --spider) |
+| --max-connections, --per-host | parallel requests (wget2's --max-threads) |
+| --fresh | ignore the saved crawl state and start over |
+| --test | print the parsed arguments, for debugging |

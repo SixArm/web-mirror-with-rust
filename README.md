@@ -155,7 +155,7 @@ Run `web-mirror --help` for the full list. In brief:
 | Scope and depth | `-l, --level`, `-n, --number-limit`, `--link-selector`, `-p, --page-requisites`, `--sitemap`, `--follow-js` |
 | URL normalization | `--strip-query-params`, `--sort-query`, `--ignore-query` |
 | Filters | `-A, --accept`, `-R, --reject`, `--ignore-file`, `--accept-mime`, `--reject-mime`, `--accept-regex`, `--reject-regex`, `-I, --include-directories`, `-X, --exclude-directories` |
-| Input and reporting | `--config`, `-i, --input-file`, `--spider`, `--check-external`, `--rejected-log`, `--events`, `-v, --verbose`, `--log-file-create`, `--log-file-append` |
+| Input and reporting | `--config`, `-i, --input-file`, `--spider`, `--check-external`, `--rejected-log`, `--events`, `-v, --verbose`, `--log-file-create`, `--log-file-append`, `--test` |
 | Politeness and limits | `-w, --wait`, `--wait-jitter`, `--rate-limit`, `--max-connections`, `--per-host`, `-Q, --quota`, `--max-time`, `--max-file-size`, `--ignore-robots` |
 | Re-downloading and resuming | `--force`, `-N, --timestamping`, `--fresh` |
 | Archiving | `--warc-file` |
@@ -186,11 +186,17 @@ async fn mirror() -> Result<(), Error> {
 ## Development
 
 ```sh
-cargo test                     # unit tests (offline)
+cargo test                     # offline unit, end-to-end, and property tests
 cargo test -- --ignored        # live-site integration tests (network)
 cargo clippy --all-targets     # lints
-cargo audit                    # security advisories
+cargo doc --no-deps            # API docs
+cargo audit && cargo deny check advisories   # security advisories
+spec/compare/benchmarks/run.sh # benchmarks against wget
 ```
+
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs the offline
+checks on Linux, macOS, and Windows on every push and pull request, and checks
+the build with the minimum Rust version.
 
 The specification, [spec/index.md](spec/index.md), is the single source of
 truth. The roadmap is in [plan.md](plan.md) and [tasks.md](tasks.md), based on

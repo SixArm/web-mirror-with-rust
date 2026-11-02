@@ -7,6 +7,90 @@
   "version": "0.1.0",
   "license": "MIT OR Apache-2.0 OR GPL-2.0-only OR GPL-3.0-only OR BSD-3-Clause",
   "usage": "web-mirror [OPTIONS] [URL]",
+  "options_help": "web-mirror --help (every option is specified in spec/index.md under Options)",
+  "option_groups": {
+    "Scope and depth": [
+      "-l, --level",
+      "-n, --number-limit",
+      "--link-selector",
+      "-p, --page-requisites",
+      "--sitemap",
+      "--follow-js"
+    ],
+    "URL normalization": [
+      "--strip-query-params",
+      "--sort-query",
+      "--ignore-query"
+    ],
+    "Filters": [
+      "-A, --accept",
+      "-R, --reject",
+      "--ignore-file",
+      "--accept-mime",
+      "--reject-mime",
+      "--accept-regex",
+      "--reject-regex",
+      "-I, --include-directories",
+      "-X, --exclude-directories"
+    ],
+    "Input and reporting": [
+      "--config",
+      "-i, --input-file",
+      "--spider",
+      "--check-external",
+      "--rejected-log",
+      "--events",
+      "-v, --verbose",
+      "--log-file-create",
+      "--log-file-append",
+      "--test"
+    ],
+    "Politeness and limits": [
+      "-w, --wait",
+      "--wait-jitter",
+      "--rate-limit",
+      "--max-connections",
+      "--per-host",
+      "-Q, --quota",
+      "--max-time",
+      "--max-file-size",
+      "--ignore-robots"
+    ],
+    "Re-downloading and resuming": [
+      "--force",
+      "-N, --timestamping",
+      "--fresh"
+    ],
+    "Archiving": [
+      "--warc-file"
+    ],
+    "Offline browsing": [
+      "-k, --convert-links",
+      "-p, --page-requisites",
+      "-E, --adjust-extension",
+      "-H, --span-hosts",
+      "-D, --domains"
+    ],
+    "Output layout": [
+      "-P, --directory-prefix",
+      "-E, --adjust-extension",
+      "--no-directories",
+      "--no-host-directories",
+      "--cut-dirs",
+      "--default-page"
+    ],
+    "HTTP": [
+      "-U, --user-agent",
+      "--header",
+      "--referer",
+      "--max-redirect",
+      "-t, --tries",
+      "-T, --timeout",
+      "--load-cookies",
+      "--save-cookies",
+      "--keep-session-cookies"
+    ]
+  },
   "examples": [
     {
       "command": "web-mirror \"https://www.nhs.uk/conditions/\" --level 1 --link-selector main",
@@ -63,7 +147,8 @@
     "plan": "plan.md",
     "tasks": "tasks.md",
     "proposals": "spec/proposals/index.md",
-    "benchmarks": "spec/compare/benchmarks/index.md"
+    "benchmarks": "spec/compare/benchmarks/index.md",
+    "ci": ".github/workflows/ci.yml"
   },
   "tests": [
     {
@@ -101,11 +186,13 @@
     "build": "cargo build",
     "test": "cargo test",
     "test_network": "cargo test -- --ignored",
-    "lint": "cargo clippy --all-targets",
-    "audit": "cargo audit && cargo deny check advisories"
+    "lint": "cargo clippy --all-targets -- -D warnings",
+    "audit": "cargo audit && cargo deny check advisories",
+    "doc": "RUSTDOCFLAGS=\"-D warnings\" cargo doc --no-deps",
+    "benchmark": "spec/compare/benchmarks/run.sh"
   },
   "planned": [
-    "continuous: fuzzing and property tests for path mapping and parsers",
-    "continuous: CI on Linux, macOS, Windows"
+    "continuous: cargo fuzz targets for path mapping, safe names, robots.txt, and link discovery",
+    "continuous: re-check spec/compare/index.md (next: November 2027)"
   ]
 }

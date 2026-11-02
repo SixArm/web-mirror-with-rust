@@ -91,13 +91,17 @@ faster and 16 are 12.9× faster on a local site with 20 ms latency, in
 - **Fuzz the path mapping and the parsers.** Wget2's CVE-2025-69195 was
   memory corruption in file-name sanitization driven by attacker URLs. Rust
   rules out the memory corruption, but a logic bug could still escape the
-  output directory. Add property tests (`proptest`) and a `cargo fuzz` target
-  for `from_mirror_layout_and_url_into_path_buf`, `from_str_into_safe_segment`,
-  the robots.txt parser, and link discovery: every output must stay inside
-  the root, contain no `.`/`..`/empty segment, and never panic.
-- **CI.** A GitHub Actions workflow: build, `cargo test`, clippy, `cargo doc`,
-  `cargo audit`, `cargo deny check advisories`, on Linux, macOS, and Windows
-  (Windows matters for the safe-name rules). Live-site tests stay manual.
+  output directory. Property tests (`proptest`, 10,000 cases) for
+  `from_mirror_layout_and_url_into_path_buf` and `from_str_into_safe_segment`
+  are done; they found two safe-name gaps (trailing dots from `.`/`..`, and
+  truncation after a device-name prefix), now fixed. Still to do: `cargo fuzz`
+  targets for those two, the robots.txt parser, and link discovery: every
+  output must stay inside the root, contain no `.`/`..`/empty segment, and
+  never panic.
+- **CI.** Done: `.github/workflows/ci.yml` runs build, `cargo test`, clippy,
+  `cargo doc`, an MSRV check, `cargo audit`, and `cargo deny check
+  advisories` on Linux, macOS, and Windows (Windows matters for the safe-name
+  rules). Live-site tests stay manual.
 - **Keep the comparison current.** Re-check `spec/compare/index.md` yearly.
 
 ## Risks

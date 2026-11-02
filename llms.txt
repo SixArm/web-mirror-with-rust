@@ -2,7 +2,7 @@
 
 > Rust command line tool and library that mirrors a section of a website to disk, like `wget --mirror`, with safe defaults: never goes above the start URL, never downloads a file twice, obeys robots.txt, and never writes outside the output directory.
 
-Usage: `web-mirror [OPTIONS] [URL]`. Example: `web-mirror "https://www.nhs.uk/conditions/" --level 1 --link-selector main` saves the A–Z page and every page linked from its main content as `www.nhs.uk/conditions/.../index.html`. Exit codes: 0 success, 1 fatal error, 2 some URLs failed.
+Usage: `web-mirror [OPTIONS] [URL]`. Example: `web-mirror "https://www.nhs.uk/conditions/" --level 1 --link-selector main` saves the A–Z page and every page linked from its main content as `www.nhs.uk/conditions/.../index.html`. Exit codes: 0 success, 1 fatal error, 2 some URLs failed. Options are modeled on wget (`--wait`, `-l`, `-p`, `-k`, `-E`, `-H`/`-D`, `-A`/`-R`, `-N`, `--warc-file`, cookies), plus `--link-selector`, `--sitemap`, `--events` (JSON Lines), `--max-connections`/`--per-host`, `--config` (TOML), `--ignore-file`, and `--spider --check-external`; `web-mirror --help` lists them all and the specification defines each one.
 
 ## Docs
 
@@ -13,7 +13,7 @@ Usage: `web-mirror [OPTIONS] [URL]`. Example: `web-mirror "https://www.nhs.uk/co
 - [Compare tools](spec/compare/index.md): landscape of mirroring, fetching, spidering, and crawling tools, and web-mirror's gaps
 - [Plan](plan.md): phased roadmap (all five phases done: offline copies, sitemaps, JSON events, WARC, resume, cookies, parallelism, conveniences)
 - [Tasks](tasks.md): work items with acceptance criteria
-- [Proposals](spec/proposals/index.md): proposed behavior for planned options
+- [Proposals](spec/proposals/index.md): proposed behavior (none open; every proposal is built)
 - [LICENSE.md](LICENSE.md): MIT OR Apache-2.0 OR GPL-2.0-only OR GPL-3.0-only OR BSD-3-Clause, at your option
 - [AGENTS.md](AGENTS.md): conventions, commands, and security rules for contributors and AI agents
 
@@ -26,5 +26,6 @@ Usage: `web-mirror [OPTIONS] [URL]`. Example: `web-mirror "https://www.nhs.uk/co
 
 ## Optional
 
-- [Cargo.toml](Cargo.toml): dependencies and minimum Rust version
+- [Cargo.toml](Cargo.toml): dependencies and minimum Rust version (1.99)
+- [CI](.github/workflows/ci.yml): build, offline and property tests, clippy, docs, MSRV, and advisories on Linux, macOS, and Windows
 - [src/lib.rs](src/lib.rs): library entry point and source layout
