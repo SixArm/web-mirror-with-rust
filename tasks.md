@@ -16,8 +16,11 @@ they list options. "Offline test" means a `TestServer` test in
   for arbitrary URLs and layouts, the path starts with the root, has no
   `.`/`..`/empty segment, no segment over 200 bytes, no Windows device name.
   Accept: 10,000 cases per run pass.
-- [ ] **Fuzz targets** (`fuzz/`, `cargo fuzz`): path mapping, safe segment,
-  robots.txt parser, HTML link discovery. Accept: one hour each, no panic.
+- [x] **Fuzz targets** (`fuzz/`, `cargo fuzz`): path mapping, safe segment,
+  robots.txt parser, HTML link discovery (plus `-k` rewriting and sitemaps).
+  Accept: one hour each, no panic. Done 2026-11-02: 3.6–12.7 million runs per
+  target; `path_mapping` found a long-host-plus-port name over 200 bytes
+  (fixed, unit test added), then passed a full hour.
 - [ ] **Re-check `spec/compare/index.md`** (next: November 2027).
 
 ## Phase 1: browsable offline copies

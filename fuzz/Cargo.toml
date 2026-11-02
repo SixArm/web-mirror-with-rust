@@ -1,0 +1,66 @@
+# Fuzz targets for web-mirror's parsers and its URL → path mapping.
+# Needs nightly Rust and cargo-fuzz: see fuzz/README.md.
+[package]
+name = "web-mirror-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+arbitrary = { version = "1", features = ["derive"] }
+libfuzzer-sys = "0.4"
+scraper = "0.29.0"
+url = "2.5.8"
+web-mirror = { path = ".." }
+
+# A separate workspace, so the main crate's builds and lockfile are untouched.
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "path_mapping"
+path = "fuzz_targets/path_mapping.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "safe_segment"
+path = "fuzz_targets/safe_segment.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "robots"
+path = "fuzz_targets/robots.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "link_discovery"
+path = "fuzz_targets/link_discovery.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "convert_links"
+path = "fuzz_targets/convert_links.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "sitemap"
+path = "fuzz_targets/sitemap.rs"
+test = false
+doc = false
+bench = false

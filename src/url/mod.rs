@@ -6,6 +6,7 @@ pub mod from_path_and_content_type_into_adjusted_path_buf; // -E: add .html or .
 pub mod from_path_and_number_into_numbered_path_buf; // index.html → index-1.html, for -nd clashes.
 pub mod from_path_into_slash_string; // A relative path with `/` on every platform.
 pub mod from_root_and_url_into_mirror_path_buf; // The same, with the default layout.
+pub mod from_str_into_is_safe_segment; // Check a name is safe (for tests and fuzzing).
 pub mod from_str_into_safe_segment; // Make one file or directory name safe.
 pub mod from_str_into_start_url; // Parse a start URL as typed in a shell.
 pub mod from_url_and_default_page_into_dir_segments_and_file_name; // Split a URL path.

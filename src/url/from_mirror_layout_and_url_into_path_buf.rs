@@ -23,15 +23,17 @@ use std::path::PathBuf;
 pub fn from_mirror_layout_and_url_into_path_buf(layout: &MirrorLayout, url: &Url) -> PathBuf {
     let mut out = layout.root.clone();
     if layout.host_directories && !layout.no_directories {
-        let mut host = from_str_into_safe_segment(url.host_str().unwrap_or("unknown-host"));
-        if let Some(port) = url.port() {
-            host.push_str(&format!("_{port}"));
-        }
+        // The port is added before the name is made safe, so a long host
+        // name with a port is still cut to a safe length (found by fuzzing).
+        let host = url.host_str().unwrap_or("unknown-host");
+        let host = match url.port() {
+            Some(port) => from_str_into_safe_segment(&format!("{host}_{port}")),
+            None => from_str_into_safe_segment(host),
+        };
         out.push(host);
     }
 
-    let (segments, file) =
-        from_url_and_default_page_into_dir_segments_and_file_name(url, &layout.default_page);
+    let (segments, file) = from_url_and_default_page_into_dir_segments_and_file_name(url, &layout.default_page);
     let mut file = from_str_into_safe_segment(&file);
     if let Some(query) = url.query() {
         let (stem, ext) = match file.rsplit_once('.') {
@@ -72,7 +74,10 @@ mod tests {
     fn default_layout() {
         let l = layout();
         assert_eq!(p(&l, "https://www.nhs.uk/conditions/"), PathBuf::from("out/www.nhs.uk/conditions/index.html"));
-        assert_eq!(p(&l, "https://www.nhs.uk/conditions/acne"), PathBuf::from("out/www.nhs.uk/conditions/acne/index.html"));
+        assert_eq!(
+            p(&l, "https://www.nhs.uk/conditions/acne"),
+            PathBuf::from("out/www.nhs.uk/conditions/acne/index.html")
+        );
         assert_eq!(p(&l, "https://h/a/b.pdf"), PathBuf::from("out/h/a/b.pdf"));
         assert_eq!(p(&l, "http://h:8080/"), PathBuf::from("out/h_8080/index.html"));
     }
@@ -126,6 +131,14 @@ mod tests {
     }
 
     #[test]
+    fn long_host_with_port_is_still_a_safe_name() {
+        let host = "a".repeat(250);
+        let path = p(&layout(), &format!("https://{host}:8443/x.pdf"));
+        let name = path.iter().nth(1).unwrap().to_str().unwrap();
+        assert!(crate::url::from_str_into_is_safe_segment::from_str_into_is_safe_segment(name), "{name}");
+    }
+
+    #[test]
     fn cannot_escape_root() {
         let path = p(&layout(), "https://h/a/%2e%2e/%2e%2e/etc/passwd.txt");
         assert!(path.starts_with("out/h"));
@@ -176,7 +189,13 @@ mod tests {
 
         fn url_strategy() -> impl Strategy<Value = Url> {
             (
-                prop_oneof![Just("h".to_string()), "[a-z0-9.-]{1,20}", Just("CON".to_string()), Just("[::1]".to_string())],
+                prop_oneof![
+                    Just("h".to_string()),
+                    "[a-z0-9.-]{1,20}",
+                    "[a-z]{190,260}",
+                    Just("CON".to_string()),
+                    Just("[::1]".to_string())
+                ],
                 proptest::option::of(1u16..),
                 path_text(),
                 proptest::option::of(path_text()),

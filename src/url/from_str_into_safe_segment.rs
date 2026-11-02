@@ -1,13 +1,14 @@
-const MAX_SEGMENT_BYTES: usize = 200;
+/// The longest name, in bytes, that `from_str_into_safe_segment` returns.
+pub const MAX_SEGMENT_BYTES: usize = 200;
 
 /// Windows device names. A file named `CON` or `nul.txt` cannot be created
 /// normally on Windows, and opening one can reach a device instead of a file.
 /// Windows also reads the superscript digits `¹`, `²`, `³` as digits in
 /// `COM` and `LPT` names.
 const WINDOWS_RESERVED_NAMES: [&str; 32] = [
-    "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$", "COM0", "COM1", "COM2", "COM3", "COM4", "COM5",
-    "COM6", "COM7", "COM8", "COM9", "COM¹", "COM²", "COM³", "LPT0", "LPT1", "LPT2", "LPT3", "LPT4",
-    "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "LPT¹", "LPT²", "LPT³",
+    "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$", "COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
+    "COM8", "COM9", "COM¹", "COM²", "COM³", "LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8",
+    "LPT9", "LPT¹", "LPT²", "LPT³",
 ];
 
 /// Make `s` safe to use as one file or directory name, on any operating
@@ -54,9 +55,9 @@ pub fn from_str_into_safe_segment(s: &str) -> String {
 /// Whether `stem` (a name up to its first dot) is a Windows device name,
 /// ignoring ASCII case.
 pub fn is_windows_reserved(stem: &str) -> bool {
-    WINDOWS_RESERVED_NAMES.iter().any(|name| {
-        stem.len() == name.len() && stem.chars().zip(name.chars()).all(|(a, b)| a.eq_ignore_ascii_case(&b))
-    })
+    WINDOWS_RESERVED_NAMES
+        .iter()
+        .any(|name| stem.len() == name.len() && stem.chars().zip(name.chars()).all(|(a, b)| a.eq_ignore_ascii_case(&b)))
 }
 
 /// Cut to at most `MAX_SEGMENT_BYTES`, on a character boundary.
@@ -76,19 +77,10 @@ pub(crate) mod tests {
     use super::*;
     use proptest::prelude::*;
 
-    /// Panic unless `name` is one safe file or directory name on Linux,
-    /// macOS, and Windows. Shared with the path-mapping property tests.
+    /// Panic unless `name` is one safe name. Shared with the path-mapping
+    /// property tests.
     pub(crate) fn assert_safe_segment(name: &str) {
-        assert!(!name.is_empty(), "empty name");
-        assert!(name != "." && name != "..", "dot name {name:?}");
-        assert!(name.len() <= MAX_SEGMENT_BYTES, "too long: {} bytes", name.len());
-        assert!(
-            !name.chars().any(|c| matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') || c.is_control()),
-            "unsafe character in {name:?}"
-        );
-        assert!(!name.ends_with('.') && !name.ends_with(' '), "trailing dot or space in {name:?}");
-        let stem = name.split('.').next().unwrap_or_default().trim_end_matches(' ');
-        assert!(!is_windows_reserved(stem), "Windows device name {name:?}");
+        assert!(crate::url::from_str_into_is_safe_segment::from_str_into_is_safe_segment(name), "unsafe name {name:?}");
     }
 
     proptest! {

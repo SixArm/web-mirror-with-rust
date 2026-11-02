@@ -27,5 +27,6 @@ Usage: `web-mirror [OPTIONS] [URL]`. Example: `web-mirror "https://www.nhs.uk/co
 ## Optional
 
 - [Cargo.toml](Cargo.toml): dependencies and minimum Rust version (1.99)
+- [Fuzz targets](fuzz/README.md): cargo-fuzz targets for the path mapping, safe names, robots.txt, link discovery, `-k` rewriting, and sitemaps
 - [CI](.github/workflows/ci.yml): build, offline and property tests, clippy, docs, MSRV, and advisories on Linux, macOS, and Windows
 - [src/lib.rs](src/lib.rs): library entry point and source layout

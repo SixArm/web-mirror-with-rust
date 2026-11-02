@@ -94,10 +94,12 @@ faster and 16 are 12.9× faster on a local site with 20 ms latency, in
   output directory. Property tests (`proptest`, 10,000 cases) for
   `from_mirror_layout_and_url_into_path_buf` and `from_str_into_safe_segment`
   are done; they found two safe-name gaps (trailing dots from `.`/`..`, and
-  truncation after a device-name prefix), now fixed. Still to do: `cargo fuzz`
-  targets for those two, the robots.txt parser, and link discovery: every
-  output must stay inside the root, contain no `.`/`..`/empty segment, and
-  never panic.
+  truncation after a device-name prefix), now fixed. `cargo fuzz` targets
+  (`fuzz/`) cover those two, the robots.txt parser, link discovery, the `-k`
+  rewriters, and sitemaps; CI runs each for 30 seconds, and each gets an hour
+  before a release. The first hour-long run found a third gap: a host name
+  near the length limit plus `_port` made a name over 200 bytes (fixed: the
+  port is added before the name is made safe).
 - **CI.** Done: `.github/workflows/ci.yml` runs build, `cargo test`, clippy,
   `cargo doc`, an MSRV check, `cargo audit`, and `cargo deny check
   advisories` on Linux, macOS, and Windows (Windows matters for the safe-name
