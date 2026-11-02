@@ -1,6 +1,7 @@
 # CI: build, offline tests, clippy, docs, and advisories on Linux, macOS, and
-# Windows (Windows matters for the safe-name rules). Live-site tests are
-# `#[ignore]` and stay manual: `cargo test -- --ignored`.
+# Windows (Windows matters for the safe-name rules), plus a short run of each
+# fuzz target (fuzz/README.md). Live-site tests are `#[ignore]` and stay
+# manual: `cargo test -- --ignored`.
 #
 # Third-party actions are pinned to full commit SHAs; Dependabot
 # (.github/dependabot.yml) proposes updates weekly.
@@ -52,6 +53,22 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  fmt:
+    name: fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt
+          rustup default stable
+      - name: Check formatting (rustfmt.toml)
+        run: |
+          cargo fmt --check
+          cd fuzz && cargo fmt --check
+
   msrv:
     name: msrv (rust-version in Cargo.toml)
     runs-on: ubuntu-latest
@@ -68,6 +85,30 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - name: Check
         run: cargo check --all-targets --locked
+
+  fuzz:
+    name: fuzz (30 seconds per target)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install nightly Rust
+        run: |
+          rustup toolchain install nightly --profile minimal
+      - uses: taiki-e/install-action@1919c4a95903d2c33e4a221102edca87309fc14b # v2.89.0
+        with:
+          tool: cargo-fuzz
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: fuzz
+      - name: Fuzz
+        working-directory: fuzz
+        shell: bash
+        run: |
+          for target in $(cargo +nightly fuzz list); do
+            cargo +nightly fuzz run "$target" -- -max_total_time=30 -timeout=10
+          done
 
   advisories:
     name: advisories

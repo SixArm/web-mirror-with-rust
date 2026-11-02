@@ -10,10 +10,7 @@ mod tests {
     #[test]
     fn test() {
         let html = scraper::Html::parse_document("<main> hello <b>world</b> </main>");
-        let main = html
-            .select(&scraper::Selector::parse("main").unwrap())
-            .next()
-            .unwrap();
+        let main = html.select(&scraper::Selector::parse("main").unwrap()).next().unwrap();
         assert_eq!(from_scraper_element_ref_text_into_string(main), "hello world");
     }
 }

@@ -12,12 +12,7 @@ use ::url::Url;
 /// they persist they mean "cannot know", which RFC 9309 says to read as
 /// disallow-all, so we stop with an error instead of crawling blind. (Treating
 /// 429 as "no robots.txt" would let a busy site be crawled with no rules.)
-pub async fn fetch_robots(
-    client: &Client,
-    start: &Url,
-    user_agent: &str,
-    tries: u32,
-) -> Result<Robots, Error> {
+pub async fn fetch_robots(client: &Client, start: &Url, user_agent: &str, tries: u32) -> Result<Robots, Error> {
     // RFC 9309 asks crawlers to parse at least 500 KiB; we read no more than
     // that, so a huge robots.txt cannot use up memory.
     const MAX_BYTES: u64 = 500 * 1024;
@@ -50,7 +45,10 @@ pub async fn fetch_robots(
             return Err(Error::Robots { url: robots_url.to_string(), detail });
         }
         let delay = delay.unwrap_or_else(|| from_response_and_attempt_into_retry_delay(None, attempt));
-        log::warn!("robots  {robots_url}: {detail} (attempt {attempt}/{tries}, retrying in {:.1} s)", delay.as_secs_f64());
+        log::warn!(
+            "robots  {robots_url}: {detail} (attempt {attempt}/{tries}, retrying in {:.1} s)",
+            delay.as_secs_f64()
+        );
         tokio::time::sleep(delay).await;
         attempt += 1;
     }

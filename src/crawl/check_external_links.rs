@@ -36,7 +36,11 @@ impl ExternalLink {
 /// host one at a time, with `--wait` (and `--wait-jitter`) between them;
 /// up to `--max-connections` hosts at once. Results come back in the order
 /// of `links`.
-pub async fn check_external_links(client: &Client, links: Vec<ExternalLink>, app: &App) -> Vec<(ExternalLink, LinkCheck)> {
+pub async fn check_external_links(
+    client: &Client,
+    links: Vec<ExternalLink>,
+    app: &App,
+) -> Vec<(ExternalLink, LinkCheck)> {
     // Group by origin, keeping the order each host was first seen.
     let mut groups: Vec<Vec<(usize, Url)>> = Vec::new();
     let mut group_of: Map<String, usize> = Map::new();

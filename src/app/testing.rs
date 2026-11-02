@@ -56,7 +56,8 @@ pub fn files_under(dir: &std::path::Path) -> Vec<PathBuf> {
         for entry in std::fs::read_dir(&d).unwrap() {
             let path = entry.unwrap().path();
             // web-mirror's own state directory is not part of the mirror.
-            if path.is_dir() && path.file_name().is_some_and(|n| n == crate::disk::saved_record::STATE_DIR) && d == dir {
+            if path.is_dir() && path.file_name().is_some_and(|n| n == crate::disk::saved_record::STATE_DIR) && d == dir
+            {
                 continue;
             }
             if path.is_dir() {
@@ -200,10 +201,7 @@ impl TestServer {
                     for (n, v) in &response.headers {
                         out.push_str(&format!("{n}: {v}\r\n"));
                     }
-                    out.push_str(&format!(
-                        "Content-Length: {}\r\nConnection: close\r\n\r\n",
-                        response.body.len()
-                    ));
+                    out.push_str(&format!("Content-Length: {}\r\nConnection: close\r\n\r\n", response.body.len()));
                     let mut stream = stream;
                     let _ = stream.write_all(out.as_bytes());
                     let _ = stream.write_all(&response.body);

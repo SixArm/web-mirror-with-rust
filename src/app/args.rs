@@ -5,11 +5,11 @@
 //! such as being able to start our app with other arg parsers.
 
 use crate::app::app::App;
-use crate::error::error::Error;
-use crate::types::url_string::UrlString;
 use crate::app::from_input_file_into_url_list::from_input_file_into_url_list;
+use crate::error::error::Error;
 use crate::filter::url_filter::UrlFilter;
 use crate::http::from_str_into_header_pair::from_str_into_header_pair;
+use crate::types::url_string::UrlString;
 use crate::url::from_str_into_safe_segment::from_str_into_safe_segment;
 use crate::url::from_str_into_start_url::from_str_into_start_url;
 use std::path::PathBuf;
@@ -324,8 +324,7 @@ impl Args {
             app.headers.push(from_str_into_header_pair(header).map_err(Error::Argument)?);
         }
         if let Some(referer) = &self.referer {
-            let url = ::url::Url::parse(referer)
-                .map_err(|source| Error::Url { input: referer.clone(), source })?;
+            let url = ::url::Url::parse(referer).map_err(|source| Error::Url { input: referer.clone(), source })?;
             app.referer = Some(url);
         }
         app.max_redirect = self.max_redirect;
@@ -342,7 +341,8 @@ impl Args {
         app.domains = from_list_into_domains(self.domains)?;
         if self.span_hosts && app.domains.is_empty() {
             return Err(Error::Argument(
-                "--span-hosts needs --domains, such as --domains=example.com, so the crawl cannot wander the web".into(),
+                "--span-hosts needs --domains, such as --domains=example.com, so the crawl cannot wander the web"
+                    .into(),
             ));
         }
         app.span_hosts = self.span_hosts;
@@ -426,10 +426,7 @@ mod tests {
     use super::*;
 
     fn args() -> Args {
-        Args {
-            url: "https://example.com/a/".into(),
-            ..Args::default()
-        }
+        Args { url: "https://example.com/a/".into(), ..Args::default() }
     }
 
     #[test]
@@ -468,9 +465,13 @@ mod tests {
     fn input_file_adds_starts() {
         let dir = crate::app::testing::temp_dir("args-input-file");
         let path = dir.join("urls.txt");
-        std::fs::write(&path, "https://example.com/b/
+        std::fs::write(
+            &path,
+            "https://example.com/b/
 https://example.com/c/
-").unwrap();
+",
+        )
+        .unwrap();
         let app = Args { input_file: Some(path.clone()), ..args() }.into_app().unwrap();
         assert_eq!(app.start.as_str(), "https://example.com/a/");
         assert_eq!(app.extra_starts.len(), 2);
@@ -481,13 +482,9 @@ https://example.com/c/
 
     #[test]
     fn filters_are_validated() {
-        let app = Args {
-            accept: vec![" pdf ".into(), "".into()],
-            accept_regex: Some("/a/".into()),
-            ..args()
-        }
-        .into_app()
-        .unwrap();
+        let app = Args { accept: vec![" pdf ".into(), "".into()], accept_regex: Some("/a/".into()), ..args() }
+            .into_app()
+            .unwrap();
         assert_eq!(app.filter.accept, ["pdf"]);
         assert!(app.filter.accept_regex.is_some());
         assert!(Args { reject_regex: Some("(".into()), ..args() }.into_app().is_err());
@@ -503,13 +500,9 @@ https://example.com/c/
 
     #[test]
     fn headers_and_referer_are_validated() {
-        let app = Args {
-            headers: vec!["X-A: 1".into()],
-            referer: Some("https://example.com/".into()),
-            ..args()
-        }
-        .into_app()
-        .unwrap();
+        let app = Args { headers: vec!["X-A: 1".into()], referer: Some("https://example.com/".into()), ..args() }
+            .into_app()
+            .unwrap();
         assert_eq!(app.headers.len(), 1);
         assert!(app.referer.is_some());
         assert!(Args { headers: vec!["nope".into()], ..args() }.into_app().is_err());

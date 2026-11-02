@@ -3,8 +3,8 @@ use crate::error::error::Error;
 use crate::types::map::Map;
 use crate::types::set::Set;
 use crate::url::from_path_and_number_into_numbered_path_buf::from_path_and_number_into_numbered_path_buf;
-use crate::url::from_url_into_redacted_url::from_url_into_redacted_url;
 use crate::url::from_path_into_slash_string::from_path_into_slash_string;
+use crate::url::from_url_into_redacted_url::from_url_into_redacted_url;
 use ::url::Url;
 use std::fs::File;
 use std::io::Write;
@@ -85,11 +85,8 @@ impl SavedRecord {
                 }
             }
         }
-        let file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-            .map_err(|e| Error::io(&path, e))?;
+        let file =
+            std::fs::OpenOptions::new().create(true).append(true).open(&path).map_err(|e| Error::io(&path, e))?;
         record.file = Some(file);
         Ok(record)
     }
@@ -145,7 +142,11 @@ impl SavedRecord {
             self.claimed.remove(&key);
         }
         for number in 0..=MAX_NUMBERED_NAMES {
-            let rel = if number == 0 { wanted_rel.clone() } else { from_path_and_number_into_numbered_path_buf(&wanted_rel, number) };
+            let rel = if number == 0 {
+                wanted_rel.clone()
+            } else {
+                from_path_and_number_into_numbered_path_buf(&wanted_rel, number)
+            };
             let taken = self.by_path.contains_key(&rel)
                 || self.claimed_paths.contains(&rel)
                 || std::fs::symlink_metadata(self.root.join(&rel)).is_ok();

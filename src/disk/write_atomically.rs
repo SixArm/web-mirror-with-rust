@@ -7,9 +7,7 @@ use std::path::{Path, PathBuf};
 /// truncated file that a later run would mistake for a complete download.
 pub async fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), Error> {
     if let Some(dir) = path.parent() {
-        tokio::fs::create_dir_all(dir)
-            .await
-            .map_err(|e| Error::io(dir, e))?;
+        tokio::fs::create_dir_all(dir).await.map_err(|e| Error::io(dir, e))?;
     }
     let mut tmp = path.to_path_buf().into_os_string();
     tmp.push(".part");
@@ -24,23 +22,13 @@ pub async fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), Error> {
     // `create_new` refuses to open anything that already exists, including a
     // symbolic link someone placed there in the meantime, so the bytes can
     // only ever go into a brand-new regular file.
-    let mut file = tokio::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&tmp)
-        .await
-        .map_err(|e| Error::io(&tmp, e))?;
-    tokio::io::AsyncWriteExt::write_all(&mut file, bytes)
-        .await
-        .map_err(|e| Error::io(&tmp, e))?;
-    tokio::io::AsyncWriteExt::flush(&mut file)
-        .await
-        .map_err(|e| Error::io(&tmp, e))?;
+    let mut file =
+        tokio::fs::OpenOptions::new().write(true).create_new(true).open(&tmp).await.map_err(|e| Error::io(&tmp, e))?;
+    tokio::io::AsyncWriteExt::write_all(&mut file, bytes).await.map_err(|e| Error::io(&tmp, e))?;
+    tokio::io::AsyncWriteExt::flush(&mut file).await.map_err(|e| Error::io(&tmp, e))?;
     drop(file);
     // Renaming over a symbolic link replaces the link, not its target.
-    tokio::fs::rename(&tmp, path)
-        .await
-        .map_err(|e| Error::io(path, e))
+    tokio::fs::rename(&tmp, path).await.map_err(|e| Error::io(path, e))
 }
 
 #[cfg(test)]

@@ -51,7 +51,10 @@ mod tests {
     fn html_css_and_others() {
         let html = br#"<html><img src="a.png"><a href="b/">b</a></html>"#;
         let page = url("https://h/d/");
-        assert_eq!(from_bytes_and_url_into_requisite_url_list(html, Some("text/html"), &page, false), [url("https://h/d/a.png")]);
+        assert_eq!(
+            from_bytes_and_url_into_requisite_url_list(html, Some("text/html"), &page, false),
+            [url("https://h/d/a.png")]
+        );
         assert!(from_bytes_and_url_into_requisite_url_list(html, Some("text/html"), &page, true).is_empty());
         let css = b"a{b:url(f.woff2)}";
         let sheet = url("https://h/d/s.css");

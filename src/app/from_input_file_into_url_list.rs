@@ -26,9 +26,8 @@ fn from_str_into_url_list(text: &str, path: &Path) -> Result<Vec<Url>, Error> {
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        let url = from_str_into_start_url(line).map_err(|e| {
-            Error::Argument(format!("{}:{}: {e}", path.display(), index + 1))
-        })?;
+        let url = from_str_into_start_url(line)
+            .map_err(|e| Error::Argument(format!("{}:{}: {e}", path.display(), index + 1)))?;
         urls.push(url);
     }
     Ok(urls)

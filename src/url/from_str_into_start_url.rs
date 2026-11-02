@@ -8,15 +8,8 @@ use ::url::Url;
 /// the shell history, so use `--header "Authorization: ..."` instead.
 pub fn from_str_into_start_url(input: &str) -> Result<Url, Error> {
     let cleaned = input.trim().replace('\\', "");
-    let with_scheme = if cleaned.contains("://") {
-        cleaned
-    } else {
-        format!("https://{cleaned}")
-    };
-    let url = Url::parse(&with_scheme).map_err(|source| Error::Url {
-        input: input.to_string(),
-        source,
-    })?;
+    let with_scheme = if cleaned.contains("://") { cleaned } else { format!("https://{cleaned}") };
+    let url = Url::parse(&with_scheme).map_err(|source| Error::Url { input: input.to_string(), source })?;
     if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
         return Err(Error::Argument(format!("{input:?} is not an http(s) URL")));
     }

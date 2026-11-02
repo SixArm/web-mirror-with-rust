@@ -16,11 +16,7 @@ pub fn is_allowed(robots: &Robots, url: &Url) -> bool {
         target.push_str(q);
     }
     let mut best: Option<&Rule> = None;
-    for rule in robots
-        .rules
-        .iter()
-        .filter(|r| pattern_matches(&r.pattern, &target))
-    {
+    for rule in robots.rules.iter().filter(|r| pattern_matches(&r.pattern, &target)) {
         best = match best {
             Some(b) if b.pattern.len() > rule.pattern.len() => Some(b),
             Some(b) if b.pattern.len() == rule.pattern.len() && b.allow => Some(b),
@@ -60,10 +56,7 @@ mod tests {
 
     #[test]
     fn longest_match_wins_and_allow_wins_ties() {
-        let r = Robots::parse(
-            "User-agent: *\nDisallow: /a/\nAllow: /a/b/\nDisallow: /t\nAllow: /t\n",
-            "web-mirror",
-        );
+        let r = Robots::parse("User-agent: *\nDisallow: /a/\nAllow: /a/b/\nDisallow: /t\nAllow: /t\n", "web-mirror");
         assert!(allowed(&r, "/a/b/c"));
         assert!(!allowed(&r, "/a/c"));
         assert!(allowed(&r, "/t"));
@@ -71,10 +64,7 @@ mod tests {
 
     #[test]
     fn wildcards_and_end_anchor() {
-        let r = Robots::parse(
-            "User-agent: *\nDisallow: /*.pdf$\nDisallow: /search?*q=\n",
-            "web-mirror",
-        );
+        let r = Robots::parse("User-agent: *\nDisallow: /*.pdf$\nDisallow: /search?*q=\n", "web-mirror");
         assert!(!allowed(&r, "/docs/a.pdf"));
         assert!(allowed(&r, "/docs/a.pdf.html"));
         assert!(!allowed(&r, "/search?page=2&q=x"));

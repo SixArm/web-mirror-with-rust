@@ -16,9 +16,9 @@ use std::path::{Component, Path};
 /// process could swap a directory for a link between this check and the
 /// write; mirror into a directory that only you can write to.
 pub fn ensure_no_symlink_below_root(root: &Path, path: &Path) -> Result<(), Error> {
-    let relative = path.strip_prefix(root).map_err(|_| {
-        Error::Argument(format!("{} is not inside {}", path.display(), root.display()))
-    })?;
+    let relative = path
+        .strip_prefix(root)
+        .map_err(|_| Error::Argument(format!("{} is not inside {}", path.display(), root.display())))?;
     let mut current = root.to_path_buf();
     for component in relative.components() {
         match component {

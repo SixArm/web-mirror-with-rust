@@ -1,7 +1,5 @@
 /// From scraper HTML into main element ref.
-pub fn from_scraper_html_into_main_scraper_element_ref(
-    html: &scraper::Html,
-) -> Option<scraper::ElementRef<'_>> {
+pub fn from_scraper_html_into_main_scraper_element_ref(html: &scraper::Html) -> Option<scraper::ElementRef<'_>> {
     static SCRAPER_SELECTOR_MAIN: std::sync::LazyLock<scraper::Selector> =
         std::sync::LazyLock::new(|| scraper::Selector::parse("main").unwrap());
     html.select(&SCRAPER_SELECTOR_MAIN).next()

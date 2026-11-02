@@ -1,6 +1,6 @@
+use crate::scraper::from_css_str_into_url_str_list::from_css_str_into_url_str_list;
 use crate::types::list::List;
 use crate::types::url_string::UrlString;
-use crate::scraper::from_css_str_into_url_str_list::from_css_str_into_url_str_list;
 use crate::url::from_js_str_into_url_str_list::from_js_str_into_url_str_list;
 use crate::url::from_url_str_list_and_base_url_into_url_list::from_url_str_list_and_base_url_into_url_list;
 use ::scraper::{ElementRef, Html, Selector};
@@ -62,11 +62,7 @@ pub fn from_html_str_and_url_into_url_list(
     let srcset_sel = Selector::parse(SRCSET_SELECTOR).unwrap();
     for el in within(&srcset_sel) {
         if let Some(v) = el.value().attr("srcset") {
-            raw.extend(
-                v.split(',')
-                    .filter_map(|c| c.split_whitespace().next())
-                    .map(str::to_string),
-            );
+            raw.extend(v.split(',').filter_map(|c| c.split_whitespace().next()).map(str::to_string));
         }
     }
     // CSS inside the page: <style> elements and style="..." attributes.
@@ -123,10 +119,7 @@ mod tests {
     #[test]
     fn base_href_is_honoured() {
         let html = r#"<base href="https://h/conditions/z/"><a href="q">q</a>"#;
-        assert_eq!(
-            strs(from_html_str_and_url_into_url_list(html, &base(), false, None)),
-            ["https://h/conditions/z/q"]
-        );
+        assert_eq!(strs(from_html_str_and_url_into_url_list(html, &base(), false, None)), ["https://h/conditions/z/q"]);
     }
 
     #[test]
@@ -136,11 +129,7 @@ mod tests {
         let got = strs(from_html_str_and_url_into_url_list(html, &base(), false, None));
         assert_eq!(
             got,
-            [
-                "https://h/conditions/a/s.css",
-                "https://h/conditions/a/bg.png",
-                "https://h/conditions/a/hero.jpg"
-            ]
+            ["https://h/conditions/a/s.css", "https://h/conditions/a/bg.png", "https://h/conditions/a/hero.jpg"]
         );
     }
 

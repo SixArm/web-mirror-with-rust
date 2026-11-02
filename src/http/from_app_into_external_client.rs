@@ -36,9 +36,7 @@ pub fn from_app_into_external_client(app: &App) -> Result<Client, Error> {
     for (name, addr) in &app.check_external_resolve {
         builder = builder.resolve(name, *addr);
     }
-    builder
-        .build()
-        .map_err(|source| Error::Http { url: app.start.to_string(), source })
+    builder.build().map_err(|source| Error::Http { url: app.start.to_string(), source })
 }
 
 /// True for an http(s) URL whose host is a name (checked when resolved) or a

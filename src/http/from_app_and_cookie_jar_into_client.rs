@@ -1,10 +1,10 @@
 use crate::app::app::App;
 use crate::cookies::cookie_jar::CookieJar;
-use std::sync::Arc;
 use crate::error::error::Error;
+use crate::http::from_app_into_redirect_policy::from_app_into_redirect_policy;
 use ::reqwest::Client;
 use ::reqwest::header::{HeaderMap, HeaderValue, REFERER};
-use crate::http::from_app_into_redirect_policy::from_app_into_redirect_policy;
+use std::sync::Arc;
 
 /// Build the one HTTP client used for the whole crawl.
 ///
@@ -32,12 +32,7 @@ pub fn from_app_and_cookie_jar_into_client(app: &App, cookie_jar: Option<Arc<Coo
     if let Some(jar) = cookie_jar {
         builder = builder.cookie_provider(jar);
     }
-    builder
-        .build()
-        .map_err(|source| Error::Http {
-            url: app.start.to_string(),
-            source,
-        })
+    builder.build().map_err(|source| Error::Http { url: app.start.to_string(), source })
 }
 
 #[cfg(test)]

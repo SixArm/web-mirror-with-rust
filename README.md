@@ -188,11 +188,15 @@ async fn mirror() -> Result<(), Error> {
 ```sh
 cargo test                     # offline unit, end-to-end, and property tests
 cargo test -- --ignored        # live-site integration tests (network)
+cargo fmt                      # format (rustfmt.toml)
 cargo clippy --all-targets     # lints
 cargo doc --no-deps            # API docs
 cargo audit && cargo deny check advisories   # security advisories
 spec/compare/benchmarks/run.sh # benchmarks against wget
 ```
+
+Fuzz targets for the parsers and the URL → path mapping are in
+[fuzz/](fuzz/README.md) (nightly Rust and `cargo-fuzz`).
 
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs the offline
 checks on Linux, macOS, and Windows on every push and pull request, and checks

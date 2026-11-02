@@ -51,9 +51,7 @@ pub async fn run() -> ExitCode {
 /// With `--log-file-create` or `--log-file-append`, log to that file (with
 /// timestamps) instead of the console.
 fn initialize_logging(args: &crate::app::args::Args) -> Result<(), crate::error::error::Error> {
-    let mut builder = env_logger::Builder::from_env(
-        env_logger::Env::default().default_filter_or("info"),
-    );
+    let mut builder = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"));
     if let Some(level) = args.log_level {
         builder.filter_level(level.to_level_filter());
     }

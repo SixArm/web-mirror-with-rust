@@ -50,10 +50,16 @@ pub fn from_config_and_command_into_arg_list(config: &Config, command: &Command)
             ArgAction::Append => match value {
                 Value::Array(items) => {
                     for item in items {
-                        out.push(format!("--{name}={}", scalar(item).ok_or_else(|| bad("items must be strings or numbers"))?));
+                        out.push(format!(
+                            "--{name}={}",
+                            scalar(item).ok_or_else(|| bad("items must be strings or numbers"))?
+                        ));
                     }
                 }
-                other => out.push(format!("--{name}={}", scalar(other).ok_or_else(|| bad("must be a string, number, or array"))?)),
+                other => out.push(format!(
+                    "--{name}={}",
+                    scalar(other).ok_or_else(|| bad("must be a string, number, or array"))?
+                )),
             },
             _ => out.push(format!("--{name}={}", scalar(value).ok_or_else(|| bad("must be a string or number"))?)),
         }
@@ -86,11 +92,22 @@ mod tests {
 
     #[test]
     fn values_become_arguments() {
-        let c = config("wait = 2\nwait_jitter = true\nforce = false\nverbose = 3\nreject = [\"mp4\", \"zip\"]\nuser-agent = \"bot/1\"\n");
+        let c = config(
+            "wait = 2\nwait_jitter = true\nforce = false\nverbose = 3\nreject = [\"mp4\", \"zip\"]\nuser-agent = \"bot/1\"\n",
+        );
         let args = from_config_and_command_into_arg_list(&c, &app()).unwrap();
         assert_eq!(
             args,
-            ["--reject=mp4", "--reject=zip", "--user-agent=bot/1", "--verbose", "--verbose", "--verbose", "--wait=2", "--wait-jitter"]
+            [
+                "--reject=mp4",
+                "--reject=zip",
+                "--user-agent=bot/1",
+                "--verbose",
+                "--verbose",
+                "--verbose",
+                "--wait=2",
+                "--wait-jitter"
+            ]
         );
     }
 

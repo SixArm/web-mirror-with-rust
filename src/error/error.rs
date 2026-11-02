@@ -11,10 +11,7 @@ use std::path::PathBuf;
 pub enum Error {
     /// A URL given on the command line or in `--input-file` did not parse.
     #[error("invalid URL {input:?}: {source}")]
-    Url {
-        input: String,
-        source: url::ParseError,
-    },
+    Url { input: String, source: url::ParseError },
 
     /// A command line value is invalid, or an unsafe path was refused.
     #[error("invalid argument: {0}")]
@@ -22,17 +19,11 @@ pub enum Error {
 
     /// Reading or writing a local file failed.
     #[error("I/O error at {path}: {source}")]
-    Io {
-        path: PathBuf,
-        source: std::io::Error,
-    },
+    Io { path: PathBuf, source: std::io::Error },
 
     /// The request failed: network error, timeout, or a refused redirect.
     #[error("HTTP request failed for {url}: {source}")]
-    Http {
-        url: String,
-        source: ::reqwest::Error,
-    },
+    Http { url: String, source: ::reqwest::Error },
 
     /// The server answered with an error status (or a redirect we did not follow).
     #[error("HTTP status {status} for {url}")]
@@ -63,9 +54,6 @@ pub enum Error {
 impl Error {
     /// Shorthand for an [`Error::Io`] at `path`.
     pub fn io(path: impl Into<PathBuf>, source: std::io::Error) -> Self {
-        Self::Io {
-            path: path.into(),
-            source,
-        }
+        Self::Io { path: path.into(), source }
     }
 }

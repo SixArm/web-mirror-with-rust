@@ -20,10 +20,8 @@ pub fn from_app_into_redirect_policy(app: &App) -> Policy {
     if max == 0 {
         return Policy::none();
     }
-    let origins: Vec<String> = std::iter::once(&app.start)
-        .chain(&app.extra_starts)
-        .map(|url| url.origin().ascii_serialization())
-        .collect();
+    let origins: Vec<String> =
+        std::iter::once(&app.start).chain(&app.extra_starts).map(|url| url.origin().ascii_serialization()).collect();
     let domains: Vec<String> = if app.span_hosts { app.domains.clone() } else { Vec::new() };
     Policy::custom(move |attempt| {
         let url = attempt.url();

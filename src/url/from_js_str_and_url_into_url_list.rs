@@ -14,13 +14,11 @@ mod tests {
     #[test]
     fn test() {
         let base = Url::parse("https://h/conditions/a/").unwrap();
-        let got: Vec<String> = from_js_str_and_url_into_url_list(
-            r#"go('/conditions/x/'); fetch("https://h/conditions/y")"#,
-            &base,
-        )
-        .into_iter()
-        .map(String::from)
-        .collect();
+        let got: Vec<String> =
+            from_js_str_and_url_into_url_list(r#"go('/conditions/x/'); fetch("https://h/conditions/y")"#, &base)
+                .into_iter()
+                .map(String::from)
+                .collect();
         assert_eq!(got, ["https://h/conditions/x/", "https://h/conditions/y"]);
     }
 }

@@ -83,7 +83,8 @@ pub async fn fetch_sitemaps(
         }
         found.requests += 1;
         let limit = if app.max_file_size == 0 { MAX_SITEMAP_BYTES } else { app.max_file_size.min(MAX_SITEMAP_BYTES) };
-        let options = FetchOptions { tries: app.tries, max_file_size: limit, as_requisite: true, ..FetchOptions::default() };
+        let options =
+            FetchOptions { tries: app.tries, max_file_size: limit, as_requisite: true, ..FetchOptions::default() };
         let bytes = match fetch(client, &url, scope, &options).await {
             Ok(FetchOutcome::Fetched(page)) => page.bytes,
             Ok(FetchOutcome::NotModified) => continue,

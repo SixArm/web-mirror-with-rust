@@ -294,7 +294,9 @@ mod tests {
     #[test]
     fn srcset_style_and_style_elements() {
         assert_eq!(
-            convert(r#"<img srcset="a.png 1x, b.png 2x"><div style="background:url(c.png)"></div><style>d{e:url(f.png)}</style>"#),
+            convert(
+                r#"<img srcset="a.png 1x, b.png 2x"><div style="background:url(c.png)"></div><style>d{e:url(f.png)}</style>"#
+            ),
             r#"<img srcset="A.PNG 1x, B.PNG 2x"><div style="background:url(&quot;C.PNG&quot;)"></div><style>d{e:url("F.PNG")}</style>"#
         );
     }
@@ -306,7 +308,8 @@ mod tests {
 
     #[test]
     fn comments_scripts_and_text_are_untouched() {
-        let html = r#"<!-- <a href="c"> --><script>var s = '<a href="s">';</script><p>a < b href="t"</p><a href="u">u</a>"#;
+        let html =
+            r#"<!-- <a href="c"> --><script>var s = '<a href="s">';</script><p>a < b href="t"</p><a href="u">u</a>"#;
         assert_eq!(
             convert(html),
             r#"<!-- <a href="c"> --><script>var s = '<a href="s">';</script><p>a < b href="t"</p><a href="U">u</a>"#
@@ -315,7 +318,8 @@ mod tests {
 
     #[test]
     fn new_values_cannot_break_out() {
-        let out = from_html_str_and_rewrite_into_html_string(r#"<a href="x">x</a>"#, &|_| Some(r#"a"><script>"#.into()));
+        let out =
+            from_html_str_and_rewrite_into_html_string(r#"<a href="x">x</a>"#, &|_| Some(r#"a"><script>"#.into()));
         assert_eq!(out, r#"<a href="a&quot;&gt;&lt;script&gt;">x</a>"#);
     }
 

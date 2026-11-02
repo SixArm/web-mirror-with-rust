@@ -9,10 +9,7 @@ use ::reqwest::Response;
 /// This is the defense against a server that sends an endless or enormous
 /// body (or a small compressed body that inflates hugely): without it, one
 /// response could use all of the machine's memory.
-pub async fn read_body_with_limit(
-    mut resp: Response,
-    limit: u64,
-) -> Result<(Vec<u8>, bool), ::reqwest::Error> {
+pub async fn read_body_with_limit(mut resp: Response, limit: u64) -> Result<(Vec<u8>, bool), ::reqwest::Error> {
     let limit = if limit == 0 { u64::MAX } else { limit };
     // Content-Length is deliberately not trusted here: it can lie, or be
     // absent. Callers that want to fail fast on a large Content-Length check

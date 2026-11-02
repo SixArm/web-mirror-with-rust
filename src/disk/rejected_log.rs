@@ -38,9 +38,10 @@ impl RejectedLog {
         let parent = from_url_into_redacted_url(parent);
         log::debug!("reject  {url} ({})", reason.as_str());
         if let Some(file) = &mut self.file
-            && let Err(e) = writeln!(file, "{}\t{url}\t{parent}", reason.as_str()) {
-                log::warn!("could not write to the rejected log: {e}");
-            }
+            && let Err(e) = writeln!(file, "{}\t{url}\t{parent}", reason.as_str())
+        {
+            log::warn!("could not write to the rejected log: {e}");
+        }
     }
 }
 

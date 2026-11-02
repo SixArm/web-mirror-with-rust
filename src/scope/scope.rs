@@ -75,8 +75,7 @@ impl Scope {
     /// but at any path on a start URL's site, because a page's stylesheets
     /// and images often live outside its directory (such as `/assets/`).
     pub fn contains_requisite(&self, url: &Url) -> bool {
-        Self::is_plain(url)
-            && (self.roots.iter().any(|root| root.contains_site(url)) || self.on_other_listed_host(url))
+        Self::is_plain(url) && (self.roots.iter().any(|root| root.contains_site(url)) || self.on_other_listed_host(url))
     }
 
     /// May we fetch `url`? This is the check every queued URL and every
@@ -120,8 +119,7 @@ impl Root {
         matches!(url.scheme(), "http" | "https")
             && url.host_str().map(str::to_ascii_lowercase).as_deref() == Some(self.host.as_str())
             && url.port_or_known_default() == self.port
-            && (url.path().starts_with(&self.prefix)
-                || format!("{}/", url.path()) == self.prefix)
+            && (url.path().starts_with(&self.prefix) || format!("{}/", url.path()) == self.prefix)
     }
 }
 

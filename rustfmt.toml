@@ -1,0 +1,4 @@
+# The code style: lines up to 120 columns, and short items on one line.
+# CI checks it with `cargo fmt --check`.
+max_width = 120
+use_small_heuristics = "Max"

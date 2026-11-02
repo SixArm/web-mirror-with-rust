@@ -60,7 +60,12 @@ pub fn from_css_str_into_url_spans(css: &str) -> Vec<CssUrlSpan> {
         } else if c == '"' || c == '\'' {
             let Some((text, next)) = read_string(&chars, i) else { break };
             if after_import {
-                urls.push(CssUrlSpan { start: offsets[i], end: offsets[next], kind: CssUrlKind::ImportString, url: text });
+                urls.push(CssUrlSpan {
+                    start: offsets[i],
+                    end: offsets[next],
+                    kind: CssUrlKind::ImportString,
+                    url: text,
+                });
                 after_import = false;
             }
             i = next;

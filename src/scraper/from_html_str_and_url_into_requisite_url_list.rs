@@ -82,7 +82,18 @@ mod tests {
             .into_iter()
             .map(|u| u.path().to_string())
             .collect();
-        for want in ["/css/s.css", "/f.ico", "/js/a.js", "/img/logo.png", "/img/s.png", "/img/l.png", "/img/p.jpg", "/v.mp4", "/img/bg.png", "/img/hero.jpg"] {
+        for want in [
+            "/css/s.css",
+            "/f.ico",
+            "/js/a.js",
+            "/img/logo.png",
+            "/img/s.png",
+            "/img/l.png",
+            "/img/p.jpg",
+            "/v.mp4",
+            "/img/bg.png",
+            "/img/hero.jpg",
+        ] {
             assert!(got.contains(&want.to_string()), "missing {want} in {got:?}");
         }
         assert!(!got.contains(&"/next/".to_string()));

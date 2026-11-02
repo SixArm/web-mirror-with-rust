@@ -16,8 +16,8 @@ pub fn from_path_into_config(path: &Path) -> Result<Config, Error> {
             path.display()
         )));
     }
-    let config: Config = ::confy::load_path(path)
-        .map_err(|e| Error::Argument(format!("--config {}: {e}", path.display())))?;
+    let config: Config =
+        ::confy::load_path(path).map_err(|e| Error::Argument(format!("--config {}: {e}", path.display())))?;
     if config.version != 1 {
         return Err(Error::Argument(format!("--config {}: version must be 1", path.display())));
     }

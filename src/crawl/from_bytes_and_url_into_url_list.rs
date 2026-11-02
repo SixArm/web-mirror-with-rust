@@ -59,7 +59,10 @@ mod tests {
     fn css_by_content_type_or_name() {
         let css = b"a{b:url(bg.png)}";
         let want = [url("https://h/a/bg.png")];
-        assert_eq!(from_bytes_and_url_into_url_list(css, Some("text/css; charset=utf-8"), &url("https://h/a/s"), false, None), want);
+        assert_eq!(
+            from_bytes_and_url_into_url_list(css, Some("text/css; charset=utf-8"), &url("https://h/a/s"), false, None),
+            want
+        );
         assert_eq!(from_bytes_and_url_into_url_list(css, None, &url("https://h/a/s.css"), false, None), want);
         assert!(from_bytes_and_url_into_url_list(css, None, &url("https://h/a/s.txt"), false, None).is_empty());
     }

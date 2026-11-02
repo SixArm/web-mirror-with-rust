@@ -1,45 +1,45 @@
 use crate::app::app::App;
+use crate::cookies::cookie_jar::CookieJar;
+use crate::cookies::from_path_into_cookie_jar_text::from_path_into_cookie_jar_text;
+use crate::crawl::check_external_links::{ExternalLink, MAX_EXTERNAL_LINKS, check_external_links};
+use crate::crawl::convert_links::{convert_links, local_path_for};
+use crate::crawl::fetch_sitemaps::fetch_sitemaps;
 use crate::crawl::from_bytes_and_url_into_requisite_url_list::from_bytes_and_url_into_requisite_url_list;
 use crate::crawl::from_bytes_and_url_into_url_list::from_bytes_and_url_into_url_list;
 use crate::crawl::pause::{MAX_PAUSE_SECONDS, from_seconds_into_duration, seconds};
 use crate::crawl::stats::Stats;
 use crate::crawl::throttle::throttle;
-use crate::disk::ensure_no_symlink_below_root::ensure_no_symlink_below_root;
-use crate::crawl::check_external_links::{ExternalLink, MAX_EXTERNAL_LINKS, check_external_links};
-use crate::crawl::convert_links::{convert_links, local_path_for};
-use crate::http::check_external_url::LinkCheck;
-use crate::http::from_app_into_external_client::from_app_into_external_client;
-use crate::crawl::fetch_sitemaps::fetch_sitemaps;
 use crate::disk::crawl_state::CrawlState;
+use crate::disk::ensure_no_symlink_below_root::ensure_no_symlink_below_root;
 use crate::disk::events_log::{Event, EventsLog};
-use crate::disk::warc_writer::{Exchange, WarcWriter};
 use crate::disk::rejected_log::RejectedLog;
 use crate::disk::saved_record::SavedRecord;
 use crate::disk::set_modified_time::set_modified_time;
+use crate::disk::warc_writer::{Exchange, WarcWriter};
 use crate::disk::write_atomically::write_atomically;
+use crate::disk::write_private_file_atomically::write_private_file_atomically;
 use crate::error::error::Error;
 use crate::filter::ignore_file::IgnoreFile;
 use crate::filter::rejection::Rejection;
 use crate::filter::url_filter::{UrlFilter, Verdict};
-use crate::robots::robots::Robots;
-use crate::scope::scope::Scope;
+use crate::http::check_external_url::LinkCheck;
 use crate::http::fetch::{FetchOptions, fetch};
 use crate::http::fetch_outcome::FetchOutcome;
 use crate::http::fetch_robots::fetch_robots;
 use crate::http::from_app_and_cookie_jar_into_client::from_app_and_cookie_jar_into_client;
-use crate::cookies::cookie_jar::CookieJar;
-use crate::cookies::from_path_into_cookie_jar_text::from_path_into_cookie_jar_text;
-use crate::disk::write_private_file_atomically::write_private_file_atomically;
+use crate::http::from_app_into_external_client::from_app_into_external_client;
+use crate::robots::robots::Robots;
+use crate::scope::scope::Scope;
 use crate::types::list::List;
 use crate::types::map::Map;
 use crate::types::queue::Queue;
 use crate::types::set::Set;
 use crate::types::url_string::UrlString;
 use crate::url::from_mirror_layout_and_url_into_path_buf::from_mirror_layout_and_url_into_path_buf;
-use crate::url::from_url_and_query_rules_into_normalized_url::from_url_and_query_rules_into_normalized_url;
 use crate::url::from_path_and_content_type_into_adjusted_path_buf::{
     from_path_and_content_type_into_adjusted_path_buf, from_path_into_adjusted_path_candidates,
 };
+use crate::url::from_url_and_query_rules_into_normalized_url::from_url_and_query_rules_into_normalized_url;
 use crate::url::from_url_into_redacted_url::from_url_into_redacted_url;
 use crate::url::mirror_layout::MirrorLayout;
 use ::url::Url;
@@ -145,7 +145,9 @@ pub async fn run(app: &App) -> Result<Stats, Error> {
     // The strictest Crawl-delay of any site is a floor under the user's --wait.
     let crawl_delay = robots.values().filter_map(Robots::crawl_delay).fold(0.0, f64::max);
     if crawl_delay > MAX_PAUSE_SECONDS {
-        log::warn!("robots.txt asks for a Crawl-delay of more than {MAX_PAUSE_SECONDS} seconds; using {MAX_PAUSE_SECONDS}");
+        log::warn!(
+            "robots.txt asks for a Crawl-delay of more than {MAX_PAUSE_SECONDS} seconds; using {MAX_PAUSE_SECONDS}"
+        );
     }
     let mut wait = app.wait.max(crawl_delay);
 
@@ -256,11 +258,7 @@ pub async fn run(app: &App) -> Result<Stats, Error> {
             }
             // Logs name the page that listed the URL, or the URL itself.
             let listed_by = from.as_ref().unwrap_or(&link).clone();
-            let in_scope = if link_is_requisite {
-                scope.contains_requisite(&link)
-            } else {
-                scope.contains(&link)
-            };
+            let in_scope = if link_is_requisite { scope.contains_requisite(&link) } else { scope.contains(&link) };
             if !in_scope && check_external && matches!(link.scheme(), "http" | "https") && !link_is_requisite {
                 if externals.len() < MAX_EXTERNAL_LINKS {
                     let mut external = ExternalLink { url: link.clone(), referrers: Vec::new(), referrer_count: 0 };
@@ -272,7 +270,10 @@ pub async fn run(app: &App) -> Result<Stats, Error> {
             }
             if !in_scope {
                 rejected.record(Rejection::Scope, &link, &listed_by);
-                events.emit(Event { reason: Some(Rejection::Scope.as_str()), ..Event::about("rejected", &link).parent(from.as_ref()) });
+                events.emit(Event {
+                    reason: Some(Rejection::Scope.as_str()),
+                    ..Event::about("rejected", &link).parent(from.as_ref())
+                });
                 continue;
             }
             let verdict = match filter.verdict(&link) {
@@ -282,7 +283,10 @@ pub async fn run(app: &App) -> Result<Stats, Error> {
             };
             if let Some(reason) = verdict {
                 rejected.record(reason, &link, &listed_by);
-                events.emit(Event { reason: Some(reason.as_str()), ..Event::about("rejected", &link).parent(from.as_ref()) });
+                events.emit(Event {
+                    reason: Some(reason.as_str()),
+                    ..Event::about("rejected", &link).parent(from.as_ref())
+                });
                 stats.rejected += 1;
                 continue;
             }
@@ -469,7 +473,18 @@ pub async fn run(app: &App) -> Result<Stats, Error> {
             };
             let if_none_match = if if_modified_since.is_some() { state.etag(&url).map(str::to_string) } else { None };
             let host = politeness_key(app, &url);
-            waiting.push_back(Job { url, depth, is_requisite, parent, mapped, path, save, if_modified_since, if_none_match, host });
+            waiting.push_back(Job {
+                url,
+                depth,
+                is_requisite,
+                parent,
+                mapped,
+                path,
+                save,
+                if_modified_since,
+                if_none_match,
+                host,
+            });
             continue;
         }
 
@@ -530,7 +545,12 @@ pub async fn run(app: &App) -> Result<Stats, Error> {
                 log::info!("same    {url}");
                 stats.not_modified += 1;
                 record.record(&url, &url, &path);
-                state.done(&url, &url, Some(path.strip_prefix(&layout.root).unwrap_or(&path)), if_none_match.as_deref());
+                state.done(
+                    &url,
+                    &url,
+                    Some(path.strip_prefix(&layout.root).unwrap_or(&path)),
+                    if_none_match.as_deref(),
+                );
                 events.emit(Event {
                     depth: Some(depth),
                     requisite: is_requisite,
@@ -572,7 +592,8 @@ pub async fn run(app: &App) -> Result<Stats, Error> {
                     // With --adjust-extension, the name follows the
                     // Content-Type the server just sent.
                     let path = if app.adjust_extension {
-                        let adjusted = from_path_and_content_type_into_adjusted_path_buf(&mapped, page.content_type.as_deref());
+                        let adjusted =
+                            from_path_and_content_type_into_adjusted_path_buf(&mapped, page.content_type.as_deref());
                         // With --no-directories, the new name may clash, too.
                         if app.no_directories && adjusted != mapped {
                             record.claim(&url, &adjusted).unwrap_or(mapped.clone())
@@ -669,12 +690,14 @@ pub async fn run(app: &App) -> Result<Stats, Error> {
             if let Some(problem) = problem {
                 stats.failed += 1;
                 stats.external_broken += 1;
-                let shown: Vec<String> = link.referrers.iter().take(3).map(|p| from_url_into_redacted_url(p).to_string()).collect();
+                let shown: Vec<String> =
+                    link.referrers.iter().take(3).map(|p| from_url_into_redacted_url(p).to_string()).collect();
                 let more = link.referrer_count.saturating_sub(shown.len());
                 let more = if more > 0 { format!(" and {more} more") } else { String::new() };
                 log::warn!("broken  {} ({problem}), linked from {}{more}", link.url, shown.join(", "));
                 event.event = "broken";
-                event.referrers = Some(link.referrers.iter().map(|p| from_url_into_redacted_url(p).to_string()).collect());
+                event.referrers =
+                    Some(link.referrers.iter().map(|p| from_url_into_redacted_url(p).to_string()).collect());
             }
             events.emit(event);
         }
@@ -721,11 +744,8 @@ fn politeness_key(app: &App, url: &Url) -> String {
 /// `--max-connections 1`, `wait` already holds the longest `Crawl-delay` of
 /// any site, as before.
 fn wait_for(app: &App, robots: &Map<String, Robots>, wait: f64, key: &str) -> std::time::Duration {
-    let base = if key.is_empty() {
-        wait
-    } else {
-        app.wait.max(robots.get(key).and_then(Robots::crawl_delay).unwrap_or(0.0))
-    };
+    let base =
+        if key.is_empty() { wait } else { app.wait.max(robots.get(key).and_then(Robots::crawl_delay).unwrap_or(0.0)) };
     from_seconds_into_duration(seconds(base, app.wait_jitter))
 }
 
@@ -733,7 +753,12 @@ fn wait_for(app: &App, robots: &Map<String, Robots>, wait: f64, key: &str) -> st
 /// candidates for the queue. Requisites (-p) stay at this depth and are
 /// never cut off by --level; ordinary links go one level deeper, if --level
 /// allows.
-fn into_backlog(found: (List<Url>, List<Url>), app: &App, depth: usize, url: &Url) -> Vec<(Url, usize, bool, Option<Url>)> {
+fn into_backlog(
+    found: (List<Url>, List<Url>),
+    app: &App,
+    depth: usize,
+    url: &Url,
+) -> Vec<(Url, usize, bool, Option<Url>)> {
     let (links, requisites) = found;
     let links = if app.max_depth.is_some_and(|max| depth >= max) { List::new() } else { links };
     requisites
@@ -792,9 +817,7 @@ fn restore_original_links(
                 if record.path_for_url(&link).is_some() {
                     return link;
                 }
-                local_path_for(&link, record, layout)
-                    .and_then(|rel| record.url_for_path(&rel).cloned())
-                    .unwrap_or(link)
+                local_path_for(&link, record, layout).and_then(|rel| record.url_for_path(&rel).cloned()).unwrap_or(link)
             })
             .collect()
     };
@@ -981,7 +1004,14 @@ mod tests {
         run(&app).await.unwrap();
         assert_eq!(
             saved(&out, &server),
-            ["assets/font.woff2", "assets/logo.png", "assets/site.css", "docs/a/index.html", "docs/a/pic.jpg", "docs/index.html"]
+            [
+                "assets/font.woff2",
+                "assets/logo.png",
+                "assets/site.css",
+                "docs/a/index.html",
+                "docs/a/pic.jpg",
+                "docs/index.html"
+            ]
         );
         // Not the nav link (outside --link-selector) or b/ (beyond --level).
         let paths = server.paths();
@@ -1124,7 +1154,9 @@ mod tests {
         // Like the bot-detection script on www.nhs.uk: every page includes
         // the same script with a different random ?v=.
         let server = TestServer::start(|req| match req.path.as_str() {
-            "/docs/" => TestResponse::html(r#"<script src="/s.js?v=1"></script><a href="a/?utm_source=x">a</a><a href="b/">b</a>"#),
+            "/docs/" => TestResponse::html(
+                r#"<script src="/s.js?v=1"></script><a href="a/?utm_source=x">a</a><a href="b/">b</a>"#,
+            ),
             "/docs/a/" => TestResponse::html(r#"<script src="/s.js?v=2"></script>"#),
             "/docs/b/" => TestResponse::html(r#"<script src="/s.js?v=3"></script>"#),
             "/s.js" => TestResponse::new(200, b"js"),
@@ -1150,7 +1182,8 @@ mod tests {
             e.write_all(b"<urlset><url><loc>/docs/from-gz/</loc></url></urlset>").unwrap();
             e.finish().unwrap()
         };
-        let server = TestServer::start(move |req| match req.path.as_str() {
+        let server = TestServer::start(move |req| {
+            match req.path.as_str() {
             "/robots.txt" => TestResponse::new(200, b"User-agent: *\nDisallow: /docs/private/\nSitemap: /index.xml\n"),
             "/index.xml" => TestResponse::new(
                 200,
@@ -1168,6 +1201,7 @@ mod tests {
             "/docs/" => TestResponse::html("<p>no links</p>"),
             "/docs/orphan/" | "/docs/from-gz/" => TestResponse::html("<p>found</p>"),
             _ => TestResponse::not_found(),
+        }
         });
         let (mut app, out) = app(&server, "/docs/");
         app.sitemap = true;
@@ -1383,7 +1417,9 @@ mod tests {
                     .header("Set-Cookie", "temp=2; Path=/"),
                 // A members-only page: needs the loaded cookie, and gets the
                 // one the server just set, too.
-                "/docs/a/" if cookies.contains("login=yes") && cookies.contains("seen=1") => TestResponse::html("members"),
+                "/docs/a/" if cookies.contains("login=yes") && cookies.contains("seen=1") => {
+                    TestResponse::html("members")
+                }
                 "/docs/a/" => TestResponse::new(403, b""),
                 _ => TestResponse::not_found(),
             }
@@ -1562,7 +1598,9 @@ mod tests {
     #[tokio::test]
     async fn no_directories_numbers_clashing_names() {
         let server = TestServer::start(|req| match req.path.as_str() {
-            "/docs/" => TestResponse::html(r#"<a href="a/">a</a> <a href="b/">b</a> <a href="a/x.pdf">x</a> <a href="b/x.pdf">x</a>"#),
+            "/docs/" => TestResponse::html(
+                r#"<a href="a/">a</a> <a href="b/">b</a> <a href="a/x.pdf">x</a> <a href="b/x.pdf">x</a>"#,
+            ),
             "/docs/a/" | "/docs/b/" => TestResponse::html("<p>page</p>"),
             "/docs/a/x.pdf" => TestResponse::new(200, b"A"),
             "/docs/b/x.pdf" => TestResponse::new(200, b"B"),
@@ -1649,10 +1687,14 @@ mod tests {
         assert!(!paths.contains(&"/private".to_string()), "{paths:?}");
         assert_eq!(paths.iter().filter(|p| *p == "/gone").count(), 2);
         let text = std::fs::read_to_string(out.join("events.jsonl")).unwrap();
-        let broken: serde_json::Value =
-            text.lines().map(|l| serde_json::from_str::<serde_json::Value>(l).unwrap()).find(|e| e["event"] == "broken").unwrap();
+        let broken: serde_json::Value = text
+            .lines()
+            .map(|l| serde_json::from_str::<serde_json::Value>(l).unwrap())
+            .find(|e| e["event"] == "broken")
+            .unwrap();
         assert_eq!(broken["status"], 404);
-        let referrers: Vec<&str> = broken["referrers"].as_array().unwrap().iter().map(|r| r.as_str().unwrap()).collect();
+        let referrers: Vec<&str> =
+            broken["referrers"].as_array().unwrap().iter().map(|r| r.as_str().unwrap()).collect();
         assert_eq!(referrers.len(), 2);
         assert!(referrers[0].ends_with("/docs/") && referrers[1].ends_with("/docs/a/"), "{referrers:?}");
         std::fs::remove_dir_all(&out).ok();
@@ -1709,9 +1751,7 @@ mod tests {
         let calls = Arc::new(AtomicUsize::new(0));
         let c = calls.clone();
         let server = TestServer::start(move |req| match req.path.as_str() {
-            "/docs/" if c.fetch_add(1, Ordering::SeqCst) == 0 => {
-                TestResponse::new(429, b"").header("Retry-After", "0")
-            }
+            "/docs/" if c.fetch_add(1, Ordering::SeqCst) == 0 => TestResponse::new(429, b"").header("Retry-After", "0"),
             "/docs/" => TestResponse::html("<p>ok</p>"),
             _ => TestResponse::not_found(),
         });

@@ -34,7 +34,9 @@ pub async fn check_external_url(client: &Client, url: &Url) -> LinkCheck {
     match client.get(url.as_str()).send().await {
         // Dropping the response closes it without reading the body.
         Ok(resp) if resp.status().is_success() => LinkCheck::Ok(resp.status().as_u16()),
-        Ok(resp) if resp.status() == StatusCode::TOO_MANY_REQUESTS => LinkCheck::Skipped("429 Too Many Requests".into()),
+        Ok(resp) if resp.status() == StatusCode::TOO_MANY_REQUESTS => {
+            LinkCheck::Skipped("429 Too Many Requests".into())
+        }
         Ok(resp) => LinkCheck::Status(resp.status().as_u16()),
         Err(e) => LinkCheck::Error(e.without_url().to_string()),
     }

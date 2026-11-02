@@ -69,7 +69,8 @@ impl WarcWriter {
         let record = WarcRecord::new("warcinfo", &now(), "application/warc-fields", info.into_bytes())
             .field("WARC-Filename", &warc_name);
         let warcinfo_id = record.id.clone();
-        let mut writer = Self { warc: BufWriter::new(warc), cdx: BufWriter::new(cdx), warc_path, warc_name, offset: 0, warcinfo_id };
+        let mut writer =
+            Self { warc: BufWriter::new(warc), cdx: BufWriter::new(cdx), warc_path, warc_name, offset: 0, warcinfo_id };
         writer.cdx.write_all(b" CDX N b a m s k r M S V g\n").map_err(|e| Error::io(&cdx_path, e))?;
         writer.append(&record)?;
         Ok(writer)
@@ -187,14 +188,23 @@ mod tests {
         headers.insert("content-type", HeaderValue::from_static("text/html; charset=utf-8"));
         let url = Url::parse("https://www.example.com/a/?q=1").unwrap();
         let request_headers = vec![("User-Agent".to_string(), "web-mirror/test".to_string())];
-        w.write(&Exchange { url: &url, request_headers: &request_headers, version: "HTTP/1.1", status: 200, response_headers: &headers, body: b"<p>hi</p>" });
+        w.write(&Exchange {
+            url: &url,
+            request_headers: &request_headers,
+            version: "HTTP/1.1",
+            status: 200,
+            response_headers: &headers,
+            body: b"<p>hi</p>",
+        });
         drop(w);
 
         let mut text = String::new();
         MultiGzDecoder::new(File::open(dir.join("crawl.warc.gz")).unwrap()).read_to_string(&mut text).unwrap();
         let types: Vec<&str> = text.lines().filter_map(|l| l.strip_prefix("WARC-Type: ")).collect();
         assert_eq!(types, ["warcinfo", "response", "request"]);
-        assert!(text.contains("HTTP/1.1 200 OK\r\ncontent-type: text/html; charset=utf-8\r\nContent-Length: 9\r\n\r\n<p>hi</p>"));
+        assert!(text.contains(
+            "HTTP/1.1 200 OK\r\ncontent-type: text/html; charset=utf-8\r\nContent-Length: 9\r\n\r\n<p>hi</p>"
+        ));
         assert!(text.contains("GET /a/?q=1 HTTP/1.1\r\nHost: www.example.com\r\n"));
 
         // The index points at the response record's gzip member.
@@ -202,7 +212,10 @@ mod tests {
         let lines: Vec<&str> = cdx.lines().collect();
         assert_eq!(lines[0], " CDX N b a m s k r M S V g");
         let f: Vec<&str> = lines[1].split(' ').collect();
-        assert_eq!((f[0], f[2], f[3], f[4], f[10]), ("com,example)/a/?q=1", "https://www.example.com/a/?q=1", "text/html", "200", "crawl.warc.gz"));
+        assert_eq!(
+            (f[0], f[2], f[3], f[4], f[10]),
+            ("com,example)/a/?q=1", "https://www.example.com/a/?q=1", "text/html", "200", "crawl.warc.gz")
+        );
         let (length, offset): (usize, usize) = (f[8].parse().unwrap(), f[9].parse().unwrap());
         let bytes = std::fs::read(dir.join("crawl.warc.gz")).unwrap();
         let mut member = String::new();

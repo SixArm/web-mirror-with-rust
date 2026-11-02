@@ -4,8 +4,8 @@ use crate::disk::write_atomically::write_atomically;
 use crate::error::error::Error;
 use crate::types::map::Map;
 use crate::types::set::Set;
-use crate::url::from_url_into_redacted_url::from_url_into_redacted_url;
 use crate::url::from_path_into_slash_string::from_path_into_slash_string;
+use crate::url::from_url_into_redacted_url::from_url_into_redacted_url;
 use ::serde::{Deserialize, Serialize};
 use ::url::Url;
 use std::fs::File;
@@ -143,7 +143,11 @@ impl CrawlState {
                         etag: etag.clone(),
                     },
                 );
-                r.done.push(Done { final_url: final_url.clone().unwrap_or_else(|| url.clone()), url, path: path.clone() });
+                r.done.push(Done {
+                    final_url: final_url.clone().unwrap_or_else(|| url.clone()),
+                    url,
+                    path: path.clone(),
+                });
             }
             for p in read.queued.iter().filter(|p| !read.done.contains_key(p.url.as_str())) {
                 push(
@@ -346,7 +350,10 @@ mod tests {
 
         let (state, resumed) = CrawlState::open(&root, &starts, false).await.unwrap();
         let resumed = resumed.unwrap();
-        assert_eq!(resumed.done, [Done { url: url("https://h/a/"), path: Some("h/a/index.html".into()), final_url: url("https://h/a/") }]);
+        assert_eq!(
+            resumed.done,
+            [Done { url: url("https://h/a/"), path: Some("h/a/index.html".into()), final_url: url("https://h/a/") }]
+        );
         let pending: Vec<_> = resumed.pending.iter().map(|p| (p.url.as_str(), p.depth, p.requisite)).collect();
         assert_eq!(pending, [("https://h/a/b/", 1, false), ("https://h/a/c.css", 0, true)]);
         assert_eq!(resumed.pending[0].parent, Some(url("https://h/a/")));

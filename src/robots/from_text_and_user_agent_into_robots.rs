@@ -44,10 +44,7 @@ pub fn from_text_and_user_agent_into_robots(text: &str, user_agent: &str) -> Rob
                 if let Some(g) = groups.last_mut() {
                     // An empty `Disallow:` means "nothing is disallowed".
                     if !value.is_empty() {
-                        g.rules.push(Rule {
-                            allow: key == "allow",
-                            pattern: value.to_string(),
-                        });
+                        g.rules.push(Rule { allow: key == "allow", pattern: value.to_string() });
                     }
                 }
             }
@@ -60,9 +57,11 @@ pub fn from_text_and_user_agent_into_robots(text: &str, user_agent: &str) -> Rob
             "crawl-delay" => {
                 in_agent_run = false;
                 if let (Some(g), Ok(d)) = (groups.last_mut(), value.parse::<f64>())
-                    && d.is_finite() && d >= 0.0 {
-                        g.crawl_delay = Some(d);
-                    }
+                    && d.is_finite()
+                    && d >= 0.0
+                {
+                    g.crawl_delay = Some(d);
+                }
             }
             _ => in_agent_run = false,
         }
@@ -70,19 +69,12 @@ pub fn from_text_and_user_agent_into_robots(text: &str, user_agent: &str) -> Rob
 
     // A group is specific to us if one of its agent names is part of our
     // product token, such as `web-mirror` for `web-mirror/0.1`.
-    let specific = |g: &Group| {
-        g.agents
-            .iter()
-            .any(|a| a != "*" && !a.is_empty() && ours.contains(a.as_str()))
-    };
+    let specific = |g: &Group| g.agents.iter().any(|a| a != "*" && !a.is_empty() && ours.contains(a.as_str()));
     let wildcard = |g: &Group| g.agents.iter().any(|a| a == "*");
     let use_specific = groups.iter().any(specific);
 
     let mut robots = Robots { sitemaps, ..Robots::default() };
-    for g in groups
-        .into_iter()
-        .filter(|g| if use_specific { specific(g) } else { wildcard(g) })
-    {
+    for g in groups.into_iter().filter(|g| if use_specific { specific(g) } else { wildcard(g) }) {
         // Several matching groups are merged, as RFC 9309 says; the
         // strictest (largest) Crawl-delay wins.
         robots.rules.extend(g.rules);

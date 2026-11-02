@@ -82,7 +82,10 @@ impl IgnoreFile {
 fn read(path: &Path) -> Result<(Vec<Regex>, Option<SystemTime>), Error> {
     let meta = std::fs::metadata(path).map_err(|e| Error::io(path, e))?;
     if meta.len() > MAX_IGNORE_FILE_BYTES {
-        return Err(Error::Argument(format!("--ignore-file {} is larger than {MAX_IGNORE_FILE_BYTES} bytes", path.display())));
+        return Err(Error::Argument(format!(
+            "--ignore-file {} is larger than {MAX_IGNORE_FILE_BYTES} bytes",
+            path.display()
+        )));
     }
     let bytes = std::fs::read(path).map_err(|e| Error::io(path, e))?;
     let text = String::from_utf8_lossy(&bytes);
@@ -94,7 +97,9 @@ fn read(path: &Path) -> Result<(Vec<Regex>, Option<SystemTime>), Error> {
         }
         match RegexBuilder::new(line).size_limit(MAX_PATTERN_BYTES).build() {
             Ok(re) => patterns.push(re),
-            Err(e) => log::warn!("--ignore-file {} line {}: not a valid pattern; skipped ({e})", path.display(), number + 1),
+            Err(e) => {
+                log::warn!("--ignore-file {} line {}: not a valid pattern; skipped ({e})", path.display(), number + 1)
+            }
         }
     }
     Ok((patterns, meta.modified().ok()))

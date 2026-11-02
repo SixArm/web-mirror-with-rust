@@ -1,12 +1,12 @@
+use crate::disk::crawl_state::is_valid_etag;
 use crate::error::error::Error;
 use crate::filter::mime_filter::MimeFilter;
-use crate::scope::scope::Scope;
 use crate::http::fetch_outcome::FetchOutcome;
 use crate::http::fetched::Fetched;
 use crate::http::from_response_and_attempt_into_retry_delay::from_response_and_attempt_into_retry_delay;
 use crate::http::read_body_with_limit::read_body_with_limit;
+use crate::scope::scope::Scope;
 use ::reqwest::Client;
-use crate::disk::crawl_state::is_valid_etag;
 use ::reqwest::header::{ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED};
 use ::url::Url;
 use std::time::SystemTime;
@@ -48,7 +48,12 @@ pub struct FetchOptions<'a> {
 /// With `mime`, a response whose `Content-Type` is not wanted fails with
 /// [`Error::MimeRejected`] before its body is read; HTML is the exception,
 /// because its links are still needed.
-pub async fn fetch(client: &Client, url: &Url, scope: &Scope, options: &FetchOptions<'_>) -> Result<FetchOutcome, Error> {
+pub async fn fetch(
+    client: &Client,
+    url: &Url,
+    scope: &Scope,
+    options: &FetchOptions<'_>,
+) -> Result<FetchOutcome, Error> {
     let FetchOptions { tries, if_modified_since, if_none_match, max_file_size, as_requisite, mime } = *options;
     let conditional = if_modified_since.is_some() || if_none_match.is_some();
     let mut attempt = 1;
@@ -71,22 +76,13 @@ pub async fn fetch(client: &Client, url: &Url, scope: &Scope, options: &FetchOpt
                 }
                 if status.is_success() {
                     let final_url = resp.url().clone();
-                    let in_scope = if as_requisite {
-                        scope.contains_requisite(&final_url)
-                    } else {
-                        scope.contains(&final_url)
-                    };
+                    let in_scope =
+                        if as_requisite { scope.contains_requisite(&final_url) } else { scope.contains(&final_url) };
                     if !in_scope {
-                        return Err(Error::OutOfScope {
-                            url: url.to_string(),
-                            to: final_url.to_string(),
-                        });
+                        return Err(Error::OutOfScope { url: url.to_string(), to: final_url.to_string() });
                     }
-                    let content_type = resp
-                        .headers()
-                        .get("content-type")
-                        .and_then(|v| v.to_str().ok())
-                        .map(str::to_ascii_lowercase);
+                    let content_type =
+                        resp.headers().get("content-type").and_then(|v| v.to_str().ok()).map(str::to_ascii_lowercase);
                     // An unwanted type is refused now, before any of the body
                     // is downloaded; HTML is still read, for its links.
                     let is_html = content_type.as_deref().is_some_and(|ct| ct.contains("html"));
@@ -137,9 +133,7 @@ pub async fn fetch(client: &Client, url: &Url, scope: &Scope, options: &FetchOpt
                     }
                 } else {
                     let err = Error::Status { url: url.to_string(), status: status.as_u16() };
-                    if status.is_redirection()
-                        || (status.is_client_error() && status.as_u16() != 429)
-                    {
+                    if status.is_redirection() || (status.is_client_error() && status.as_u16() != 429) {
                         return Err(err);
                     }
                     delay = Some(from_response_and_attempt_into_retry_delay(Some(&resp), attempt));

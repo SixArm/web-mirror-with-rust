@@ -151,7 +151,8 @@ mod tests {
     #[test]
     fn hostile_xml_is_harmless() {
         // No DTD or external entity is ever expanded.
-        let xml = r#"<!DOCTYPE urlset [<!ENTITY x SYSTEM "file:///etc/passwd">]><urlset><url><loc>&x;</loc></url></urlset>"#;
+        let xml =
+            r#"<!DOCTYPE urlset [<!ENTITY x SYSTEM "file:///etc/passwd">]><urlset><url><loc>&x;</loc></url></urlset>"#;
         assert_eq!(from_xml_str_into_sitemap(xml).entries[0].loc, "&x;");
         // Unclosed and broken input ends quietly.
         assert!(from_xml_str_into_sitemap("<urlset><url><loc>https://h/</loc>").entries.is_empty());

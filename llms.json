@@ -148,7 +148,8 @@
     "tasks": "tasks.md",
     "proposals": "spec/proposals/index.md",
     "benchmarks": "spec/compare/benchmarks/index.md",
-    "ci": ".github/workflows/ci.yml"
+    "ci": ".github/workflows/ci.yml",
+    "fuzz": "fuzz/README.md"
   },
   "tests": [
     {
@@ -189,10 +190,12 @@
     "lint": "cargo clippy --all-targets -- -D warnings",
     "audit": "cargo audit && cargo deny check advisories",
     "doc": "RUSTDOCFLAGS=\"-D warnings\" cargo doc --no-deps",
-    "benchmark": "spec/compare/benchmarks/run.sh"
+    "benchmark": "spec/compare/benchmarks/run.sh",
+    "fuzz": "cd fuzz && cargo +nightly fuzz run <target>",
+    "format": "cargo fmt"
   },
   "planned": [
-    "continuous: cargo fuzz targets for path mapping, safe names, robots.txt, and link discovery",
+    "continuous: one-hour fuzz run per target before each release (fuzz/README.md)",
     "continuous: re-check spec/compare/index.md (next: November 2027)"
   ]
 }

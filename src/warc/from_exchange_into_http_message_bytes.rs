@@ -57,7 +57,10 @@ mod tests {
             ("Authorization".to_string(), "Bearer s3cret".to_string()),
         ];
         let text = String::from_utf8(from_request_into_http_message_bytes("h:8080", "/a?b=1", &headers)).unwrap();
-        assert_eq!(text, "GET /a?b=1 HTTP/1.1\r\nHost: h:8080\r\nUser-Agent: web-mirror/0.1\r\nAuthorization: [redacted]\r\n\r\n");
+        assert_eq!(
+            text,
+            "GET /a?b=1 HTTP/1.1\r\nHost: h:8080\r\nUser-Agent: web-mirror/0.1\r\nAuthorization: [redacted]\r\n\r\n"
+        );
     }
 
     #[test]

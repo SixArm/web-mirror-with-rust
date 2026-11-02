@@ -28,11 +28,7 @@ pub async fn pause(wait: f64, wait_jitter: bool) {
 /// A pause length as a `Duration`, cut to [`MAX_PAUSE_SECONDS`]. Never panics,
 /// even for infinity or NaN.
 pub fn from_seconds_into_duration(secs: f64) -> Duration {
-    if secs.is_nan() || secs <= 0.0 {
-        Duration::ZERO
-    } else {
-        Duration::from_secs_f64(secs.min(MAX_PAUSE_SECONDS))
-    }
+    if secs.is_nan() || secs <= 0.0 { Duration::ZERO } else { Duration::from_secs_f64(secs.min(MAX_PAUSE_SECONDS)) }
 }
 
 #[cfg(test)]

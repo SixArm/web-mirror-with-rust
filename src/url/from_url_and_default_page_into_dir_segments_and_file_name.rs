@@ -13,11 +13,8 @@ pub fn from_url_and_default_page_into_dir_segments_and_file_name(
     default_page: &str,
 ) -> (Vec<String>, String) {
     let path = url.path();
-    let mut segments: Vec<String> = path
-        .split('/')
-        .filter(|s| !s.is_empty() && *s != "." && *s != "..")
-        .map(str::to_string)
-        .collect();
+    let mut segments: Vec<String> =
+        path.split('/').filter(|s| !s.is_empty() && *s != "." && *s != "..").map(str::to_string).collect();
     let file = match segments.last() {
         Some(last) if !path.ends_with('/') && last.contains('.') => segments.pop().unwrap(),
         _ => default_page.to_string(),

@@ -122,9 +122,8 @@ impl EventsLog {
     pub fn emit(&mut self, mut event: Event) {
         let Some(out) = &mut self.out else { return };
         event.time = from_system_time_into_rfc3339_string(std::time::SystemTime::now());
-        let result = serde_json::to_string(&event)
-            .map_err(std::io::Error::other)
-            .and_then(|line| writeln!(out, "{line}"));
+        let result =
+            serde_json::to_string(&event).map_err(std::io::Error::other).and_then(|line| writeln!(out, "{line}"));
         if let Err(e) = result {
             log::warn!("could not write to the events log: {e}");
         }

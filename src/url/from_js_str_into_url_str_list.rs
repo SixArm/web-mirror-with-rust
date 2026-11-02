@@ -3,9 +3,8 @@ use std::sync::LazyLock;
 
 /// Quoted URL-looking strings inside JavaScript: absolute, protocol-relative,
 /// or root-relative. This is a heuristic, which is why following them is opt-in.
-static JS_URL: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"["']((?:https?:)?//[^"'\s\\<>]+|/[^"'\s\\<>/][^"'\s\\<>]*)["']"#).unwrap()
-});
+static JS_URL: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"["']((?:https?:)?//[^"'\s\\<>]+|/[^"'\s\\<>/][^"'\s\\<>]*)["']"#).unwrap());
 
 /// Every quoted URL-looking string in `js`, in order, without the quotes.
 ///

@@ -27,17 +27,21 @@ disk, like `wget --mirror`. Entry point: `src/main.rs` → `app::run::run`.
 cargo build
 cargo test                              # offline unit tests; must pass
 cargo test -- --ignored                 # live-site tests (network, ~1 minute)
+cargo fmt                               # style in rustfmt.toml; CI runs --check
 cargo clippy --all-targets              # must have no warnings
 cargo doc --no-deps                     # must have no warnings
 cargo audit && cargo deny check advisories
 spec/compare/benchmarks/run.sh          # benchmarks vs wget (release build)
+cd fuzz && cargo +nightly fuzz run path_mapping   # fuzzing; see fuzz/README.md
 ```
 
 CI (`.github/workflows/ci.yml`) runs the offline checks above on Linux,
 macOS, and Windows. Paths written into web-mirror's own files (events,
 crawl state, `-k` record) use `url/from_path_into_slash_string.rs`, never
 `Path::display`, so they are the same on Windows; tests compare saved names
-with `testing::file_names_under`.
+with `testing::file_names_under`. New code that parses website input (HTML,
+CSS, robots.txt, sitemaps) or maps it to paths gets a fuzz target in `fuzz/`
+that checks a property, not only "no panic".
 
 The build directory may be set by `CARGO_TARGET_DIR`; find the binary with
 `cargo metadata --format-version 1 --no-deps` (`target_directory`).

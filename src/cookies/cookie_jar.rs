@@ -68,7 +68,9 @@ impl CookieJar {
     /// left out, and so are session cookies (no expiry time) unless
     /// `keep_session` (`--keep-session-cookies`), as in wget.
     pub fn to_netscape(&self, keep_session: bool) -> String {
-        let mut out = String::from("# Netscape HTTP Cookie File\n# Written by web-mirror. It may hold secrets: keep it private.\n\n");
+        let mut out = String::from(
+            "# Netscape HTTP Cookie File\n# Written by web-mirror. It may hold secrets: keep it private.\n\n",
+        );
         let Ok(store) = self.store.read() else { return out };
         for cookie in store.iter_unexpired() {
             let expires = match cookie.expires {
@@ -119,11 +121,8 @@ impl ::reqwest::cookie::CookieStore for CookieJar {
             return None;
         }
         let store = self.store.read().ok()?;
-        let value = store
-            .get_request_values(url)
-            .map(|(name, value)| format!("{name}={value}"))
-            .collect::<Vec<_>>()
-            .join("; ");
+        let value =
+            store.get_request_values(url).map(|(name, value)| format!("{name}={value}")).collect::<Vec<_>>().join("; ");
         if value.is_empty() { None } else { HeaderValue::from_str(&value).ok() }
     }
 }

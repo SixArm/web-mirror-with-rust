@@ -61,8 +61,9 @@ mod tests {
 
     #[test]
     fn record_bytes() {
-        let r = WarcRecord::new("response", "2026-11-02T10:00:00Z", "application/http;msgtype=response", b"HTTP".to_vec())
-            .field("WARC-Target-URI", "https://h/\r\nWARC-Type: evil");
+        let r =
+            WarcRecord::new("response", "2026-11-02T10:00:00Z", "application/http;msgtype=response", b"HTTP".to_vec())
+                .field("WARC-Target-URI", "https://h/\r\nWARC-Type: evil");
         let text = String::from_utf8(r.to_bytes()).unwrap();
         assert!(text.starts_with("WARC/1.1\r\nWARC-Type: response\r\nWARC-Record-ID: <urn:uuid:"));
         assert!(text.contains("\r\nWARC-Target-URI: https://h/WARC-Type: evil\r\n"));

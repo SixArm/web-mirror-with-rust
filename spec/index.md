@@ -557,12 +557,19 @@ Property tests (`proptest`, 10,000 cases each) check that
 `from_mirror_layout_and_url_into_path_buf` keeps every path under the output
 directory with only safe names, for arbitrary URLs (dot segments, escaped
 dots and slashes, device names, long and non-ASCII names) and layouts, and
-that `from_str_into_safe_segment` makes any string a safe name.
+that `from_str_into_safe_segment` makes any string a safe name. Both use
+`url/from_str_into_is_safe_segment.rs`, which states what "safe" means.
 
-Continuous integration (`.github/workflows/ci.yml`) runs the build, the
-offline tests, clippy (warnings denied), `cargo doc` (warnings denied),
+Fuzz targets (`fuzz/`, `cargo +nightly fuzz`; see `fuzz/README.md`) cover the
+path mapping, safe names, the robots.txt parser, link discovery in HTML, CSS,
+and JavaScript, the `-k` HTML and CSS rewriters (with nothing to rewrite,
+every byte must stay as it was), and sitemap parsing and decompression.
+
+Continuous integration (`.github/workflows/ci.yml`) runs `cargo fmt --check`
+(style in `rustfmt.toml`), the build, the offline tests, clippy (warnings denied), `cargo doc` (warnings denied),
 `cargo audit`, and `cargo deny check advisories` on Linux, macOS, and
-Windows, and checks the build with the `rust-version` in `Cargo.toml`.
+Windows, checks the build with the `rust-version` in `Cargo.toml`, and runs
+each fuzz target for 30 seconds.
 Live-site tests are not run in CI.
 
 Integration tests that use the network are marked `#[ignore]` (see

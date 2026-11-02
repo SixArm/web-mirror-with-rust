@@ -43,13 +43,10 @@ impl UrlFilter {
     /// and the directory lists reject outright; the suffix lists only stop a
     /// page from being saved, so the crawl can still pass through it.
     pub fn verdict(&self, url: &Url) -> Verdict {
-        let (segments, file) =
-            from_url_and_default_page_into_dir_segments_and_file_name(url, self.default_page());
+        let (segments, file) = from_url_and_default_page_into_dir_segments_and_file_name(url, self.default_page());
         let dir = format!("/{}", segments.join("/"));
 
-        if !self.include_directories.is_empty()
-            && !self.include_directories.iter().any(|d| dir_matches(d, &dir))
-        {
+        if !self.include_directories.is_empty() && !self.include_directories.iter().any(|d| dir_matches(d, &dir)) {
             return Verdict::Reject(Rejection::Directory);
         }
         if self.exclude_directories.iter().any(|d| dir_matches(d, &dir)) {
@@ -72,8 +69,7 @@ impl UrlFilter {
     /// Should the file for `url` be saved? Used for the start URLs, which are
     /// always fetched but obey `--accept` and `--reject` for saving.
     pub fn should_save(&self, url: &Url) -> bool {
-        let (_, file) =
-            from_url_and_default_page_into_dir_segments_and_file_name(url, self.default_page());
+        let (_, file) = from_url_and_default_page_into_dir_segments_and_file_name(url, self.default_page());
         self.name_is_accepted(&file)
     }
 

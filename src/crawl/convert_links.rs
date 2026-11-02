@@ -137,8 +137,16 @@ mod tests {
         let url = |s: &str| Url::parse(s).unwrap();
         let mut record = SavedRecord::in_memory(&root);
         let files = [
-            ("https://h/c/", "h/c/index.html", r##"<base href="https://h/c/"><a href="acne/#causes">a</a> <a href="/other/">o</a> <a href="#top">t</a> <link rel=stylesheet href="/s/site.css">"##),
-            ("https://h/c/acne/", "h/c/acne/index.html", r#"<a href="../">up</a> <a href="mailto:x@h">m</a> <img src="a%20b.png">"#),
+            (
+                "https://h/c/",
+                "h/c/index.html",
+                r##"<base href="https://h/c/"><a href="acne/#causes">a</a> <a href="/other/">o</a> <a href="#top">t</a> <link rel=stylesheet href="/s/site.css">"##,
+            ),
+            (
+                "https://h/c/acne/",
+                "h/c/acne/index.html",
+                r#"<a href="../">up</a> <a href="mailto:x@h">m</a> <img src="a%20b.png">"#,
+            ),
             ("https://h/s/site.css", "h/s/site.css", "a{b:url(../c/acne/a%20b.png)}"),
             ("https://h/c/acne/a%20b.png", "h/c/acne/a%20b.png", "PNG"),
         ];
@@ -154,7 +162,10 @@ mod tests {
             read("h/c/index.html"),
             r##"<a href="acne/index.html#causes">a</a> <a href="https://h/other/">o</a> <a href="#top">t</a> <link rel=stylesheet href="../s/site.css">"##
         );
-        assert_eq!(read("h/c/acne/index.html"), r#"<a href="../index.html">up</a> <a href="mailto:x@h">m</a> <img src="a%2520b.png">"#);
+        assert_eq!(
+            read("h/c/acne/index.html"),
+            r#"<a href="../index.html">up</a> <a href="mailto:x@h">m</a> <img src="a%2520b.png">"#
+        );
         assert_eq!(read("h/s/site.css"), r#"a{b:url("../c/acne/a%2520b.png")}"#);
         // Converting again changes nothing: converted links are recognized.
         assert_eq!(convert_links(&record, &layout).await, 0);

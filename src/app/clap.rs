@@ -561,7 +561,8 @@ pub fn from_argv_into_matches(argv: Vec<std::ffi::OsString>) -> Result<ArgMatche
     let Some(path) = config_path(&argv) else {
         return app().try_get_matches_from(argv);
     };
-    let config_error = |e: crate::error::error::Error| clap::Error::raw(clap::error::ErrorKind::InvalidValue, format!("{e}\n"));
+    let config_error =
+        |e: crate::error::error::Error| clap::Error::raw(clap::error::ErrorKind::InvalidValue, format!("{e}\n"));
     let config = crate::app::from_path_into_config::from_path_into_config(&path).map_err(config_error)?;
     let from_config =
         crate::app::from_config_and_command_into_arg_list::from_config_and_command_into_arg_list(&config, &app())
@@ -595,9 +596,7 @@ mod tests {
     use crate::app::testing::{COMMAND_OS, assert_command_stdout_contains};
 
     fn parse(argv: &[&str]) -> Args {
-        let matches = app()
-            .try_get_matches_from(std::iter::once("web-mirror").chain(argv.iter().copied()))
-            .unwrap();
+        let matches = app().try_get_matches_from(std::iter::once("web-mirror").chain(argv.iter().copied())).unwrap();
         args_from_matches(&matches)
     }
 
@@ -669,7 +668,12 @@ mod tests {
     #[test]
     fn test_log_file_create_and_append_conflict() {
         let result = app().try_get_matches_from([
-            "web-mirror", "--log-file-create", "a.log", "--log-file-append", "b.log", "https://e.com/",
+            "web-mirror",
+            "--log-file-create",
+            "a.log",
+            "--log-file-append",
+            "b.log",
+            "https://e.com/",
         ]);
         assert!(result.is_err());
     }
@@ -830,17 +834,41 @@ mod tests {
     #[test]
     fn test_url_filtering() {
         let a = parse(&[
-            "-A", "pdf,docx", "--accept", "txt", "-R", "jpg", "--accept-regex", "/a/",
-            "--reject-regex", "print", "-I", "/a,/b", "-X", "/a/old", "https://e.com/",
+            "-A",
+            "pdf,docx",
+            "--accept",
+            "txt",
+            "-R",
+            "jpg",
+            "--accept-regex",
+            "/a/",
+            "--reject-regex",
+            "print",
+            "-I",
+            "/a,/b",
+            "-X",
+            "/a/old",
+            "https://e.com/",
         ]);
         assert_eq!(a.accept, ["pdf", "docx", "txt"]);
         assert_eq!(a.reject, ["jpg"]);
         assert_eq!(a.accept_regex.as_deref(), Some("/a/"));
         assert_eq!(a.reject_regex.as_deref(), Some("print"));
-        assert_eq!(parse(&["--ignore-file", "traps.txt", "https://e.com/"]).ignore_file, Some(PathBuf::from("traps.txt")));
+        assert_eq!(
+            parse(&["--ignore-file", "traps.txt", "https://e.com/"]).ignore_file,
+            Some(PathBuf::from("traps.txt"))
+        );
         assert_eq!(a.include_directories, ["/a", "/b"]);
         assert_eq!(a.exclude_directories, ["/a/old"]);
-        let a = parse(&["--accept-mime", "text/*", "--reject-mime", "video/*,audio/*", "--max-time", "1h30m", "https://e.com/"]);
+        let a = parse(&[
+            "--accept-mime",
+            "text/*",
+            "--reject-mime",
+            "video/*,audio/*",
+            "--max-time",
+            "1h30m",
+            "https://e.com/",
+        ]);
         assert_eq!((a.accept_mime.len(), a.reject_mime.len(), a.max_time.as_secs()), (1, 2, 5400));
     }
 
@@ -878,8 +906,16 @@ mod tests {
         let a = parse(&["https://e.com/"]);
         assert_eq!((a.max_redirect, a.timestamping, a.headers.len()), (20, false, 0));
         let a = parse(&[
-            "--header", "A: 1", "--header", "B: 2, 3", "--referer", "https://e.com/r",
-            "--max-redirect", "0", "-N", "https://e.com/",
+            "--header",
+            "A: 1",
+            "--header",
+            "B: 2, 3",
+            "--referer",
+            "https://e.com/r",
+            "--max-redirect",
+            "0",
+            "-N",
+            "https://e.com/",
         ]);
         assert_eq!(a.headers, ["A: 1", "B: 2, 3"]);
         assert_eq!(a.referer.as_deref(), Some("https://e.com/r"));
@@ -897,7 +933,9 @@ mod tests {
         let argv = |rest: &[&str]| -> Vec<std::ffi::OsString> {
             std::iter::once("web-mirror").chain(rest.iter().copied()).map(Into::into).collect()
         };
-        let a = args_from_matches(&from_argv_into_matches(argv(&["--config", path.to_str().unwrap(), "https://e.com/"])).unwrap());
+        let a = args_from_matches(
+            &from_argv_into_matches(argv(&["--config", path.to_str().unwrap(), "https://e.com/"])).unwrap(),
+        );
         assert_eq!((a.level, a.wait, a.wait_jitter), (2, 5.0, true));
         assert_eq!(a.reject, ["mp4"]);
         let config = format!("--config={}", path.display());
@@ -929,8 +967,15 @@ mod tests {
         assert!(!a.fresh && !a.keep_session_cookies);
         assert_eq!((a.load_cookies, a.save_cookies, a.warc_file), (None, None, None));
         let a = parse(&[
-            "--fresh", "--load-cookies", "in.txt", "--save-cookies", "out.txt", "--keep-session-cookies",
-            "--warc-file", "crawl", "https://e.com/",
+            "--fresh",
+            "--load-cookies",
+            "in.txt",
+            "--save-cookies",
+            "out.txt",
+            "--keep-session-cookies",
+            "--warc-file",
+            "crawl",
+            "https://e.com/",
         ]);
         assert!(a.fresh && a.keep_session_cookies);
         assert_eq!(a.load_cookies, Some(PathBuf::from("in.txt")));
@@ -956,8 +1001,20 @@ mod tests {
         assert!(parse(&["--sitemap", "https://e.com/"]).sitemap);
         assert!(parse(&["-E", "https://e.com/"]).adjust_extension);
         assert_eq!(parse(&["--max-file-size", "0", "https://e.com/"]).max_file_size, 0);
-        let a = parse(&["--no-host-directories", "--cut-dirs", "2", "--default-page", "home.htm", "-Q", "1m", "https://e.com/"]);
-        assert_eq!((a.no_host_directories, a.cut_dirs, a.default_page.as_str(), a.quota), (true, 2, "home.htm", 1 << 20));
+        let a = parse(&[
+            "--no-host-directories",
+            "--cut-dirs",
+            "2",
+            "--default-page",
+            "home.htm",
+            "-Q",
+            "1m",
+            "https://e.com/",
+        ]);
+        assert_eq!(
+            (a.no_host_directories, a.cut_dirs, a.default_page.as_str(), a.quota),
+            (true, 2, "home.htm", 1 << 20)
+        );
         assert!(!a.no_directories);
         assert!(parse(&["--no-directories", "https://e.com/"]).no_directories);
     }
