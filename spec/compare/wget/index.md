@@ -16,6 +16,10 @@ is in `spec/compare/index.md`.
 | --span-hosts, --domains | -H, --span-hosts; -D, --domains |
 | --warc-file         | --warc-file (WARC 1.1 and CDX; records rebuilt from decoded bodies) |
 | --load-cookies, --save-cookies, --keep-session-cookies | the same (Netscape format; cookies only to hosts in scope) |
+| --config=FILE | --config (TOML; keys are option names) |
+| (grab-site) ignores | --ignore-file (re-read during the crawl) |
+| --spider (with -H for external links) | --spider --check-external (public addresses only, referrers reported) |
+| (wget2) --max-threads | --max-connections, with --per-host (one request per host by default) |
 | -c, --continue (for a whole crawl) | automatic: an interrupted crawl resumes from `.web-mirror/state.jsonl`; `--fresh` starts over |
 
 Startup:
@@ -94,7 +98,7 @@ Download:
 Directories:
 | wget option                  | web-mirror option | purpose                                                                                                                                                       |
 | ---------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| -nd, --no-directories || don't create directories
+| -nd, --no-directories | --no-directories | don't create directories (clashes numbered `-1`, `-2`)
 | -x, --force-directories || force creation of directories
 | -nH, --no-host-directories | --no-host-directories | don't create host directories
 | --protocol-directories || use protocol name in directories

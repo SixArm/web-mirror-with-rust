@@ -14,7 +14,9 @@ pub struct Event {
     pub time: String,
     /// `saved`, `fetched` (fetched for its links, not saved), `checked`
     /// (`--spider`), `exists` (read from disk), `unchanged` (304), `failed`,
-    /// `rejected`, `blocked` (robots.txt), or `summary` (the last line).
+    /// `rejected`, `blocked` (robots.txt), `external` (a working or skipped
+    /// external link) and `broken` (a broken one), for `--check-external`,
+    /// or `summary` (the last line).
     pub event: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
@@ -41,6 +43,9 @@ pub struct Event {
     /// What went wrong, for `failed`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// The pages that link to a broken external link (`--check-external`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub referrers: Option<Vec<String>>,
     /// The final counts, for `summary`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stats: Option<SummaryStats>,
@@ -56,6 +61,8 @@ pub struct SummaryStats {
     pub failed: usize,
     pub blocked: usize,
     pub rejected: usize,
+    pub external_checked: usize,
+    pub external_broken: usize,
 }
 
 impl From<&Stats> for SummaryStats {
@@ -68,6 +75,8 @@ impl From<&Stats> for SummaryStats {
             failed: s.failed,
             blocked: s.blocked,
             rejected: s.rejected,
+            external_checked: s.external_checked,
+            external_broken: s.external_broken,
         }
     }
 }

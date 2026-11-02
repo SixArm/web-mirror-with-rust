@@ -3,7 +3,7 @@
   "description": "Rust command line tool and library that mirrors a section of a website to disk, like `wget --mirror`, with safe defaults.",
   "repository": "https://github.com/SixArm/web-mirror-with-rust",
   "language": "Rust",
-  "rust_version": "1.85",
+  "rust_version": "1.99",
   "version": "0.1.0",
   "license": "MIT OR Apache-2.0 OR GPL-2.0-only OR GPL-3.0-only OR BSD-3-Clause",
   "usage": "web-mirror [OPTIONS] [URL]",
@@ -31,6 +31,10 @@
     {
       "command": "web-mirror \"https://example.com/docs/\" --spider --rejected-log rejected.tsv",
       "result": "Check links without saving; log why URLs were skipped."
+    },
+    {
+      "command": "web-mirror \"https://example.com/docs/\" --spider --check-external",
+      "result": "Check every link, including links to other sites (public addresses only), and report broken ones with the pages that link to them."
     }
   ],
   "defaults": [
@@ -39,7 +43,7 @@
     "Resumes an interrupted crawl from .web-mirror/state.jsonl (--fresh starts over)",
     "Obeys robots.txt and Crawl-delay",
     "Follows URLs in HTML and CSS only (JavaScript with --follow-js)",
-    "Sequential requests",
+    "One request at a time (--max-connections for parallel, still one per host)",
     "At most 1 GiB per file (--max-file-size)",
     "At most 20 redirects, only within the start URLs' sites"
   ],
@@ -58,7 +62,8 @@
     "compare_tools": "spec/compare/index.md",
     "plan": "plan.md",
     "tasks": "tasks.md",
-    "proposals": "spec/proposals/index.md"
+    "proposals": "spec/proposals/index.md",
+    "benchmarks": "spec/compare/benchmarks/index.md"
   },
   "tests": [
     {
@@ -100,11 +105,7 @@
     "audit": "cargo audit && cargo deny check advisories"
   },
   "planned": [
-    "--max-connections with per-host limits",
-    "benchmarks against wget and wget2",
-    "--config",
-    "--no-directories",
-    "--check-external",
-    "--ignore-file"
+    "continuous: fuzzing and property tests for path mapping and parsers",
+    "continuous: CI on Linux, macOS, Windows"
   ]
 }

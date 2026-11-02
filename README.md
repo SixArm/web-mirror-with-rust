@@ -25,8 +25,11 @@ www.nhs.uk/
   their links, and an interrupted crawl resumes from its queue the next time
   (`--fresh` starts over). Use `--force` to re-download, or `-N` to
   re-download only what changed on the server (by date and `ETag`).
-- **Polite by default.** Obeys `robots.txt` and its `Crawl-delay`; sequential
-  requests; `--wait`, `--wait-jitter`, and `--rate-limit` for more.
+- **Polite by default.** Obeys `robots.txt` and its `Crawl-delay`; one
+  request at a time; `--wait`, `--wait-jitter`, and `--rate-limit` for more.
+  `--max-connections` fetches in parallel, still one request per host unless
+  `--per-host` says more (12× faster on a local test site; see
+  [Benchmarks](spec/compare/benchmarks/index.md)).
 - **Safe with hostile sites.** Never writes outside the output directory,
   never follows a redirect to another site, never writes through a symbolic
   link, and bounds the memory any one response can use. See
@@ -40,7 +43,7 @@ cd web-mirror-with-rust
 cargo install --path .
 ```
 
-Needs Rust 1.85 or newer.
+Needs Rust 1.99 or newer (`rust-version` in `Cargo.toml`).
 
 ## Examples
 
@@ -106,6 +109,25 @@ Check links without saving anything, and log why URLs were skipped:
 web-mirror "https://example.com/docs/" --spider --rejected-log rejected.tsv
 ```
 
+Check links to other sites too, and list the pages with broken ones:
+
+```sh
+web-mirror "https://example.com/docs/" --spider --check-external
+```
+
+Keep your usual options in a file (TOML; the command line overrides it):
+
+```sh
+web-mirror "https://example.com/docs/" --config ~/.config/web-mirror.toml
+```
+
+Cut off a crawler trap without stopping the crawl: add a pattern such as
+`/calendar/` to the file while it runs:
+
+```sh
+web-mirror "https://example.com/docs/" --ignore-file traps.txt
+```
+
 Watch a crawl as JSON, one line per URL (logs stay on standard error):
 
 ```sh
@@ -132,13 +154,13 @@ Run `web-mirror --help` for the full list. In brief:
 | ---- | ------- |
 | Scope and depth | `-l, --level`, `-n, --number-limit`, `--link-selector`, `-p, --page-requisites`, `--sitemap`, `--follow-js` |
 | URL normalization | `--strip-query-params`, `--sort-query`, `--ignore-query` |
-| Filters | `-A, --accept`, `-R, --reject`, `--accept-mime`, `--reject-mime`, `--accept-regex`, `--reject-regex`, `-I, --include-directories`, `-X, --exclude-directories` |
-| Input and reporting | `-i, --input-file`, `--spider`, `--rejected-log`, `--events`, `-v, --verbose`, `--log-file-create`, `--log-file-append` |
-| Politeness and limits | `-w, --wait`, `--wait-jitter`, `--rate-limit`, `-Q, --quota`, `--max-time`, `--max-file-size`, `--ignore-robots` |
+| Filters | `-A, --accept`, `-R, --reject`, `--ignore-file`, `--accept-mime`, `--reject-mime`, `--accept-regex`, `--reject-regex`, `-I, --include-directories`, `-X, --exclude-directories` |
+| Input and reporting | `--config`, `-i, --input-file`, `--spider`, `--check-external`, `--rejected-log`, `--events`, `-v, --verbose`, `--log-file-create`, `--log-file-append` |
+| Politeness and limits | `-w, --wait`, `--wait-jitter`, `--rate-limit`, `--max-connections`, `--per-host`, `-Q, --quota`, `--max-time`, `--max-file-size`, `--ignore-robots` |
 | Re-downloading and resuming | `--force`, `-N, --timestamping`, `--fresh` |
 | Archiving | `--warc-file` |
 | Offline browsing | `-k, --convert-links`, `-p, --page-requisites`, `-E, --adjust-extension`, `-H, --span-hosts` with `-D, --domains` |
-| Output layout | `-P, --directory-prefix`, `-E, --adjust-extension`, `--no-host-directories`, `--cut-dirs`, `--default-page` |
+| Output layout | `-P, --directory-prefix`, `-E, --adjust-extension`, `--no-directories`, `--no-host-directories`, `--cut-dirs`, `--default-page` |
 | HTTP | `-U, --user-agent`, `--header`, `--referer`, `--max-redirect`, `-t, --tries`, `-T, --timeout`, `--load-cookies`, `--save-cookies`, `--keep-session-cookies` |
 
 Sizes take `k`, `m`, or `g` suffixes (powers of 1024). For each option's

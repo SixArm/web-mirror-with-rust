@@ -15,9 +15,12 @@ mod tests {
     fn test_confy() {
         let dir = temp_dir("confy");
         let path = dir.join("web-mirror.toml");
+        std::fs::write(&path, "version = 1\nwait = 2\nwait-jitter = true\nreject = [\"*.mp4\", \"*.zip\"]\n").unwrap();
         let config: Config = ::confy::load_path(&path).unwrap();
-        assert_eq!(config, Config::default());
-        assert!(path.exists()); // confy writes the defaults on first load
+        assert_eq!(config.version, 1);
+        assert_eq!(config.options["wait"], 2);
+        assert_eq!(config.options["wait-jitter"], true);
+        assert_eq!(config.options["reject"], serde_json::json!(["*.mp4", "*.zip"]));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

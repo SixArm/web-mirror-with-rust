@@ -30,7 +30,14 @@ cargo test -- --ignored                 # live-site tests (network, ~1 minute)
 cargo clippy --all-targets              # must have no warnings
 cargo doc --no-deps                     # must have no warnings
 cargo audit && cargo deny check advisories
+spec/compare/benchmarks/run.sh          # benchmarks vs wget (release build)
 ```
+
+CI (`.github/workflows/ci.yml`) runs the offline checks above on Linux,
+macOS, and Windows. Paths written into web-mirror's own files (events,
+crawl state, `-k` record) use `url/from_path_into_slash_string.rs`, never
+`Path::display`, so they are the same on Windows; tests compare saved names
+with `testing::file_names_under`.
 
 The build directory may be set by `CARGO_TARGET_DIR`; find the binary with
 `cargo metadata --format-version 1 --no-deps` (`target_directory`).
@@ -69,9 +76,16 @@ The build directory may be set by `CARGO_TARGET_DIR`; find the binary with
   logged (keep the `cookie_store` log filter in `app/run.rs`), and are saved
   only with `disk/write_private_file_atomically.rs` (mode 0600). WARC request
   records redact secret headers (`warc/from_exchange_into_http_message_bytes.rs`).
+- `--check-external` is the only feature that requests URLs outside the
+  scope. It must use `http/from_app_into_external_client.rs` (public
+  addresses only, no secrets sent), never the crawl's client.
 - web-mirror's own files in `.web-mirror/` (crawl state, `-k` record) are
   read as untrusted input: validate every line, and send every URL read back
   through the normal scope, filter, and robots.txt checks.
+- With `--max-connections`, a request task does only `http::fetch::fetch`
+  (and its rate-limit sleep); saving, the crawl state, events, and the
+  queue stay in the crawl loop in `crawl/run.rs`, so no two tasks ever
+  write the same file. Keep it that way.
 - Durations from outside input go through `crawl/pause.rs`
   `from_seconds_into_duration`, which cannot panic.
 - `cargo audit` and `cargo deny check advisories` pass with no exceptions;

@@ -35,6 +35,9 @@ pub async fn run() -> ExitCode {
                 stats.rejected,
                 stats.failed
             );
+            if stats.external_checked > 0 {
+                log::info!("external links: {} checked, {} broken", stats.external_checked, stats.external_broken);
+            }
             if stats.failed > 0 { ExitCode::from(2) } else { ExitCode::SUCCESS }
         }
         Err(e) => {

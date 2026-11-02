@@ -11,7 +11,8 @@ they list options. "Offline test" means a `TestServer` test in
 - [ ] **CI workflow** `.github/workflows/ci.yml`: build, test, clippy (deny
   warnings), doc, `cargo audit`, `cargo deny check advisories`; matrix of
   ubuntu, macos, windows. Accept: green on all three; live tests not run.
-- [ ] **Property tests for the path mapping** (`proptest` dev-dependency):
+  Written, with an MSRV check; not yet run on GitHub (tick when green).
+- [x] **Property tests for the path mapping** (`proptest` dev-dependency):
   for arbitrary URLs and layouts, the path starts with the root, has no
   `.`/`..`/empty segment, no segment over 200 bytes, no Windows device name.
   Accept: 10,000 cases per run pass.
@@ -92,17 +93,24 @@ they list options. "Offline test" means a `TestServer` test in
 
 ## Phase 4: speed, politely
 
-- [ ] **`--max-connections`, `--per-host`.** Accept: with N=4 on a local
+- [x] **`--max-connections`, `--per-host`.** Accept: with N=4 on a local
   server, 4× faster; per-host waits still honoured; same files as N=1.
-- [ ] **Benchmarks** against wget and wget2 on a local server, written to
-  `spec/compare/benchmarks.md`.
+  (3.9× in the benchmark; `max_connections_fetches_in_parallel_with_the_same_files`,
+  `per_host_limit_is_per_host`, `wait_applies_per_host_with_parallel_requests`.)
+- [x] **Benchmarks** against wget and wget2 on a local server, written to
+  `spec/compare/benchmarks/index.md` (`run.sh` reproduces them). Still to
+  do: wget2 numbers (it was not installed; `run.sh` includes it when it is).
 
 ## Phase 5: conveniences
 
-- [ ] **`--config=FILE`** (TOML via `confy`); command line overrides it.
-- [ ] **`-nd`, `--no-directories`** with `-1`, `-2` clash suffixes.
-- [ ] **`--check-external`** for `--spider`, with referrers in the report.
-- [ ] **`--ignore-file=FILE`**, re-read every N seconds during a crawl.
+- [x] **`--config=FILE`** (TOML via `confy`); command line overrides it.
+  (`test_config_file`, `from_config_and_command_into_arg_list` tests.)
+- [x] **`--no-directories`** with `-1`, `-2` clash suffixes. No `-nd` short
+  form: `-n` is `--number-limit`. (`no_directories_numbers_clashing_names`.)
+- [x] **`--check-external`** for `--spider`, with referrers in the report;
+  public addresses only. (`check_external_reports_broken_links_with_referrers`.)
+- [x] **`--ignore-file=FILE`**, re-read every 5 seconds during a crawl, and
+  applied to queued URLs. (`ignore_file_cuts_off_a_trap_mid_crawl`.)
 
 ## Done
 

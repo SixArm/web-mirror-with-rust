@@ -40,6 +40,12 @@ pub fn assert_command_stdout_contains(mut command: std::process::Command, inner:
     );
 }
 
+/// `files_under`, as `/`-separated strings on every platform, for comparing
+/// with expected names such as `"docs/a/index.html"`.
+pub fn file_names_under(dir: &std::path::Path) -> Vec<String> {
+    files_under(dir).iter().map(|p| crate::url::from_path_into_slash_string::from_path_into_slash_string(p)).collect()
+}
+
 /// Every file under `dir`, as sorted paths relative to `dir`, leaving out
 /// web-mirror's own `dir/.web-mirror/` (the crawl state is not part of the mirror).
 #[allow(dead_code)]

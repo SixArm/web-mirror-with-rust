@@ -72,13 +72,17 @@ Done when: a stopped crawl resumes without fetching or reading what it
 already handled; `-N` gets a 304 by `ETag` alone; the WARC passes an
 independent reader; cookies reach only in-scope hosts.
 
-### Phase 4: speed, politely
+### Phase 4: speed, politely (done, November 2026)
 
 1. `--max-connections` with per-host limits and per-host waits.
 2. Benchmarks against wget and wget2 on a local server (pages per second,
-   memory), recorded in `spec/compare/`.
+   memory), recorded in `spec/compare/benchmarks/`.
 
-### Phase 5: conveniences
+Result: one at a time, web-mirror matches wget; 4 connections are 3.9×
+faster and 16 are 12.9× faster on a local site with 20 ms latency, in
+14 MB of memory.
+
+### Phase 5: conveniences (done, November 2026)
 
 `--config`, `--no-directories`, `--check-external`, `--ignore-file`.
 

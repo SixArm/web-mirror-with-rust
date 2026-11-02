@@ -13,6 +13,8 @@ pub enum Rejection {
     Directory,
     /// Its `Content-Type` failed `--accept-mime` or matched `--reject-mime`.
     Mime,
+    /// Matched a pattern in `--ignore-file`.
+    Ignore,
 }
 
 impl Rejection {
@@ -25,6 +27,7 @@ impl Rejection {
             Rejection::Suffix => "SUFFIX",
             Rejection::Directory => "DIRECTORY",
             Rejection::Mime => "MIME",
+            Rejection::Ignore => "IGNORE",
         }
     }
 }
@@ -41,5 +44,6 @@ mod tests {
         assert_eq!(Rejection::Suffix.as_str(), "SUFFIX");
         assert_eq!(Rejection::Directory.as_str(), "DIRECTORY");
         assert_eq!(Rejection::Mime.as_str(), "MIME");
+        assert_eq!(Rejection::Ignore.as_str(), "IGNORE");
     }
 }

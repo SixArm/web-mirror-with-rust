@@ -47,8 +47,8 @@ Strengths today, compared with the field:
   reject, regex, and directory filters.
 - **A library as well as a tool**, with offline end-to-end tests.
 
-Gaps, compared with the field (ranked in `plan.md`). Gaps 1–5 and 7 are
-closed (Phases 1–3); each says how:
+Gaps, compared with the field (ranked in `plan.md`). All seven are
+closed (Phases 1–4); each says how:
 
 1. **Browsable offline copies.** wget `-k`/`-p`, Wget2, and HTTrack rewrite
    links and fetch page requisites (CSS, images, scripts, and the URLs inside
@@ -63,8 +63,9 @@ closed (Phases 1–3); each says how:
 5. **Smarter refreshes.** `-N` uses `Last-Modified` only; `ETag`
    (`If-None-Match`) is more reliable on modern sites. Closed: `-N` sends
    both; interrupted crawls also resume from the crawl state.
-6. **Speed on big sites.** Wget2 and aria2 fetch in parallel; web-mirror is
-   deliberately sequential (polite), which is slow for large mirrors.
+6. **Speed on big sites.** Wget2 and aria2 fetch in parallel. Closed:
+   `--max-connections` and `--per-host`, one request per host by default
+   (see `benchmarks/index.md`).
 7. **Logged-in sites.** wget, curl, and HTTrack load cookies. Closed:
    `--load-cookies`, `--save-cookies`.
 

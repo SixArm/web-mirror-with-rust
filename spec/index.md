@@ -66,6 +66,20 @@ Modeled on `wget`:
 - `-P`, `--directory-prefix=DIR`: output directory (default `.`)
 - `-l`, `--level=N`: maximum link depth (default 0 = unlimited)
 - `-U`, `--user-agent=AGENT`
+- `--max-connections=N`: fetch up to N URLs at once (1 to 64; default 1, one
+  at a time, as with wget). Each host still gets one request at a time unless
+  `--per-host` says more, and `--wait` (with `--wait-jitter`) and each host's
+  `Crawl-delay` apply per host: a host rests that long after each of its
+  requests, and its request starts are spaced that far apart. With 1, the
+  wait is between any two requests, and the longest `Crawl-delay` of any site
+  applies to all, as before. Parallelism changes only the order in which
+  pages are handled: the same URLs are fetched, each once, and the same files
+  are saved. Each request gets an equal share of `--rate-limit`. `-n` counts
+  URLs as they are taken from the queue; with `-Q` and `--max-time`, requests
+  in progress are finished. See `spec/compare/benchmarks/index.md`.
+- `--per-host=N`: with `--max-connections`, allow up to N requests at once to
+  the same host (1 to `--max-connections`; default 1). For servers you run or
+  may load; one at a time is what most site operators expect.
 - `-t`, `--tries=N`: attempts per URL (default 3). Network errors, 5xx, and
   429 are retried after the server's `Retry-After` (seconds or an HTTP date,
   at most 5 minutes), or else after 1 s, 2 s, ...
@@ -128,6 +142,28 @@ Modeled on `wget`:
 
 Input and reporting:
 
+- `--config=FILE`: read default options from FILE, a TOML file whose keys are
+  long option names (`max-connections` or `max_connections`) and whose values
+  are what the option takes:
+
+  ```toml
+  version = 1          # optional; the only version is 1
+  wait = 2
+  wait-jitter = true   # a flag: true sets it, false leaves it unset
+  verbose = 3          # a count: -vvv
+  reject = ["*.mp4", "*.zip"]
+  header = ["Accept-Language: en-GB"]
+  ```
+
+  Options on the command line override the file: a single-valued option
+  replaces the file's value, and a repeatable one (`--header`, `--accept`,
+  ...) adds to the file's values. A flag set in the file cannot be unset on
+  the command line, and options that conflict (such as `force` in the file
+  and `-N` on the command line) are an error. The file must exist (it is
+  never created) and be at most 1 MiB. Unknown keys, the wrong kind of value,
+  nested tables, and `config`, `help`, `version`, and `test` are errors, so
+  a typo is never silently ignored. The start URL cannot be in the file (use
+  `input-file`). There is no default config file.
 - `-i`, `--input-file=FILE`: also read start URLs from FILE, one per line (`-`
   is standard input; blank lines and `#` comments are skipped). The URL
   argument becomes optional. The scope is the union of every start URL's scope,
@@ -135,9 +171,31 @@ Input and reporting:
 - `--spider`: crawl and check links, but never save files (and never read
   them from disk). Failures are logged and give exit code 2, so this works as
   a link checker.
+- `--check-external` (needs `--spider`): also check the links that leave the
+  mirror's scope (not page requisites), each once, after the crawl, without
+  crawling them, like lychee and muffet. Each is requested with `HEAD`, then,
+  if that does not succeed, `GET` (whose body is not read). A link is broken
+  on a 4xx or 5xx status, an unfollowed redirect, or no response; 429 Too
+  Many Requests counts as not checked, not broken. Broken links are logged
+  with the pages that link to them (`broken URL (HTTP 404), linked from A, B
+  and 3 more`), count as failures (exit code 2), and are `broken` events with
+  `referrers` (up to 100). Links on one host are checked one at a time with
+  `--wait` between them; up to `--max-connections` hosts at once. At most
+  100,000 external links. External links are not written to the rejected
+  log. Safety:
+  - They are checked with a separate HTTP client that sends only
+    `User-Agent`: never `--header` values, `--referer`, or cookies.
+  - Only public addresses are requested: links to IP addresses that are
+    loopback, private, link-local (including cloud metadata), carrier-grade
+    NAT, or reserved, and to `localhost` names, are skipped; host names are
+    resolved by a resolver that drops non-public addresses, so a name pointed
+    at the local network fails, and redirects must pass the same check
+    (`http/from_app_into_external_client.rs`, `http/public_only_resolver.rs`).
+    No proxy is used for these checks, so the address check is the real one.
 - `--rejected-log=FILE`: write each URL that was found but not fetched to FILE,
   tab-separated: `REASON`, `URL`, `PARENT_URL`. Reasons: `SCOPE`, `ROBOTS`,
-  `REGEX`, `SUFFIX`, `DIRECTORY`, `MIME`. Each URL is logged at most once.
+  `REGEX`, `SUFFIX`, `DIRECTORY`, `MIME`, `IGNORE`. Each URL is logged at most
+  once.
 
 - `--events=FILE`: write one JSON object per line (JSON Lines) for every URL
   the crawl handles, then a summary, for scripts, dashboards, and AI agents;
@@ -152,7 +210,9 @@ Input and reporting:
   or `--reject`), `checked` (`--spider`), `exists` (read from disk),
   `unchanged` (304, `-N`), `failed` (with `error`, and `status` for an HTTP
   error), `rejected` (with `reason`, as in `--rejected-log`), `blocked`
-  (`robots.txt`), or `summary` (last line, with `stats`). Other fields:
+  (`robots.txt`), `external` (a working, or not checked, external link) and
+  `broken` (with `referrers`), for `--check-external`, or `summary` (last
+  line, with `stats`). Other fields:
   `time` (RFC 3339, UTC), `url`, `parent` (the linking page; absent for start
   URLs), `depth`, `requisite` (true for `-p` requisites), `status`, `bytes`,
   `path` (relative to the output directory). Fields that do not apply are
@@ -185,6 +245,16 @@ URL filtering (applies to discovered links; start URLs are always fetched):
 - `-R`, `--reject=LIST`: the opposite of `--accept`.
 - `--accept-regex=REGEX`, `--reject-regex=REGEX`: match against the whole URL;
   a URL that fails is not fetched at all.
+- `--ignore-file=FILE`: also reject URLs that match any regular expression in
+  FILE (one per line, matched anywhere in the URL like `--reject-regex`;
+  blank lines and `#` comments skipped; at most 1 MiB). FILE is checked every
+  5 seconds during the crawl and read again when its modification time
+  changes, and its patterns also drop URLs already queued, so a crawler trap
+  (an endless calendar, search pages) can be cut off without restarting, as
+  with grab-site's ignores. FILE must be readable at the start; a line that is
+  not a valid pattern is skipped with a warning; if FILE cannot be read later,
+  the patterns in use are kept. Start URLs are always fetched. Rejections are
+  logged as `IGNORE`.
 - `--accept-mime=LIST`, `--reject-mime=LIST`: download only responses whose
   `Content-Type` matches (or does not match) LIST, such as `text/*` or
   `video/*,audio/*`: type and subtype, ignoring case and parameters, with `*`
@@ -208,6 +278,16 @@ Output layout:
   opens the offline copy correctly, like `wget -E`. The query stays before
   the extension: `page.php?x=1` → `page@x=1.php.html`. The "never download
   twice" check finds a file under either name.
+- `--no-directories`: save every file directly in the output directory, with
+  no host or path directories (wget's `-nd`; there is no `-nd` short form,
+  because `-n` is `--number-limit`). When two URLs map to the same name, the
+  later one gets a number before the extension: `index.html`, `index-1.html`,
+  `index-2.html`. No file is ever overwritten: a name already used by another
+  URL, or held by a file web-mirror did not save, is skipped. The record
+  `DIR/.web-mirror/saved.tsv` is kept (as with `-k`), so each URL gets the
+  same name in later runs and "never download twice" still works. With `-E`,
+  the adjusted name is checked for clashes too. `--no-host-directories` and
+  `--cut-dirs` have no effect.
 - `--default-page=NAME`: save directory URLs as NAME instead of `index.html`.
   NAME must be a plain file name.
 - `--max-time=DURATION`: stop starting new requests after DURATION: seconds
@@ -328,7 +408,6 @@ and failed.
 Rust crates:
 
 - `clap`: command line argument parsing
-- `confy`: configuration management
 - `scraper`: web page HTML parser
 - `reqwest`: HTTP client (rustls TLS with the system's certificate roots,
   HTTP/2, gzip/brotli/deflate/zstd decoding, system proxy settings)
@@ -340,6 +419,7 @@ Rust crates:
 - `serde_json`: `--events` and the crawl state (JSON Lines)
 - `flate2`: gzipped sitemaps and the `--warc-file` archive
 - `cookie_store`, `cookie`: cookie rules (RFC 6265) for `--load-cookies`
+- `confy`: reads the `--config` TOML file
 - `sha1`: WARC digests
 
 ## Design notes
@@ -350,10 +430,13 @@ Rust crates:
   "use the file on disk instead", which is a core requirement, so only its
   re-exported `reqwest` client was used; depending on `reqwest` directly
   dropped about 200 unused crates (and the advisories that came with them).
-- Fetching is sequential, as with `wget`, so `--wait` is meaningful.
-- Not yet: parallel fetching and smaller conveniences are planned; see
-  `plan.md`, `tasks.md`, and the proposed behavior in
-  `spec/proposals/index.md`. Running JavaScript stays a non-goal (see
+- Fetching is sequential by default, as with `wget`, so `--wait` is
+  meaningful. With `--max-connections`, requests run as tasks on the async
+  runtime, but everything else (saving, the crawl state, events, link
+  discovery, the queue) stays in the one crawl loop, so nothing on disk is
+  ever written by two tasks at once.
+- Every phase in `plan.md` is built. Continuous work (fuzzing, CI) is in
+  `plan.md` and `tasks.md`. Running JavaScript stays a non-goal (see
   `spec/compare/index.md`).
 
 ## robots.txt
@@ -385,9 +468,16 @@ every byte from the network as hostile. Guarantees, and where they live:
 - **Files are only written inside the output directory.** Every URL path
   segment is made safe (`url/from_str_into_safe_segment.rs`): path separators,
   control and Windows-reserved characters become `_`; `.`, `..`, and the empty
-  name can never appear; trailing dots and spaces and Windows device names
-  (`CON`, `nul.txt`) are neutralized. `--default-page` must be a plain file
-  name.
+  name can never appear (`.` becomes `_`, `..` becomes `._`); trailing dots
+  and spaces become `_`; Windows device names (`CON`, `nul.txt`, `CON .txt`,
+  `COM0`–`COM9`, `COM¹`–`COM³`, the same for `LPT`, `CONIN$`, `CONOUT$`) get
+  a leading `_`; and no name is longer than 200 bytes. `--default-page` must
+  be a plain file name. Property tests check these rules for 10,000
+  arbitrary URLs and layouts on every `cargo test`.
+- **Paths in web-mirror's own files use `/`.** The events log, the crawl
+  state, and the `-k` record write paths relative to the output directory
+  with `/` between names on every platform, so they read the same on
+  Windows.
 - **Never writes through a symbolic link.** Before a write, every existing part
   of the path below the output directory is checked, and a symbolic link is
   refused (`disk/ensure_no_symlink_below_root.rs`). The `.part` file is created
@@ -399,6 +489,10 @@ every byte from the network as hostile. Guarantees, and where they live:
   local network machines, or cloud metadata addresses
   (`http/from_app_into_redirect_policy.rs`). A redirect's final URL must
   also be in scope (`http/fetch.rs`).
+- **Link checking never reaches the local network.** `--check-external`,
+  the one feature that requests URLs outside the scope, connects only to
+  public addresses (checked on the address actually connected to, so DNS
+  rebinding cannot get past it), and sends no secrets (see `--check-external`).
 - **Never sends or logs credentials from URLs.** Start URLs may not contain a
   user name or password (use `--header "Authorization: ..."`); links that do
   are out of scope; the rejected log redacts them.
@@ -446,6 +540,29 @@ network and run with every `cargo test`. They cover scope, `robots.txt`
 cookies, `--warc-file`, refused off-site redirects, `--max-file-size`,
 `Retry-After`, and refusing to write through a symbolic link.
 
+End-to-end tests also cover `--no-directories` (numbered clashes, stable
+across runs), `--ignore-file` (a pattern added mid-crawl drops queued URLs),
+and `--check-external` (broken links with referrers, HEAD then GET, private
+addresses never requested; a second test server stands in for the web).
+`--config` is tested through the argument parser.
+
+End-to-end tests also cover `--max-connections` and `--per-host`: peak
+concurrency (measured by the test server), per-host limits across two hosts,
+per-host waits, `-n` and resume under parallelism, and the same files as one
+at a time. Benchmarks against wget: `spec/compare/benchmarks/index.md`.
+
+Property tests (`proptest`, 10,000 cases each) check that
+`from_mirror_layout_and_url_into_path_buf` keeps every path under the output
+directory with only safe names, for arbitrary URLs (dot segments, escaped
+dots and slashes, device names, long and non-ASCII names) and layouts, and
+that `from_str_into_safe_segment` makes any string a safe name.
+
+Continuous integration (`.github/workflows/ci.yml`) runs the build, the
+offline tests, clippy (warnings denied), `cargo doc` (warnings denied),
+`cargo audit`, and `cargo deny check advisories` on Linux, macOS, and
+Windows, and checks the build with the `rust-version` in `Cargo.toml`.
+Live-site tests are not run in CI.
+
 Integration tests that use the network are marked `#[ignore]` (see
 `spec/tests/integration-network-tests-must-use-ignore/index.md`); run them
 with `cargo test -- --ignored`. They take turns (`live_site_lock` in
@@ -489,21 +606,31 @@ Source directories (one concern each; see also `src/lib.rs`):
 
 - `app/`: `App` (validated settings), `Args` (raw arguments), `clap.rs`
   (command line), `run.rs` (program entry: logging, run, exit code),
-  `config.rs`/`confy.rs` (config file, not loaded yet), `testing.rs` (test
-  helpers), and converters for `--input-file`, sizes, and log files.
-- `crawl/`: the crawl loop (`run.rs`), the polite pause, `--rate-limit`
-  throttling, and the summary `Stats`.
-- `disk/`: every file system write: atomic writes, the symbolic link check,
-  file times, and the rejected log.
+  `config.rs`/`confy.rs` and converters for `--config`, `testing.rs` (test
+  helpers, `TestServer`), and converters for `--input-file`, sizes,
+  durations, and log files.
+- `convert/`: `-k` text rewriting of HTML and CSS (pure, no I/O).
+- `cookies/`: the cookie jar (only hosts in scope; Netscape format).
+- `crawl/`: the crawl loop (`run.rs`), sitemaps, `-k` conversion, external
+  link checks, the polite pause, `--rate-limit` throttling, and `Stats`.
+- `disk/`: every file system write: atomic and private writes, the symbolic
+  link check, file times, the crawl state, the `-k` record, the events,
+  rejected, and WARC files.
 - `error/`: the crate's `Error`.
-- `filter/`: `--accept`, `--reject`, the regexes, and the directory lists.
+- `filter/`: `--accept`, `--reject`, the regexes, the directory lists, the
+  MIME filter, and `--ignore-file`.
+- `http/`: every network request: the clients, redirect policies, fetches,
+  `robots.txt`, external link checks, the public-only resolver, and the body
+  size limit.
 - `robots/`: `robots.txt` parsing and matching.
 - `scope/`: `Scope`, what may be fetched at all.
-- `scraper/`: HTML parsing and link discovery.
-- `http/`: every network request: the client, redirect policy, fetches,
-  and the body size limit.
+- `scraper/`: HTML and CSS parsing and link discovery.
+- `sitemap/`: sitemap XML parsing and decompression (pure).
+- `time/`: timestamps.
 - `types/`: semantic type aliases and macros (`List`, `Set`, `UrlString`, ...).
-- `url/`: URL parsing, URL → file path mapping, safe names, redaction.
+- `url/`: URL parsing, URL → file path mapping, safe names, normalization,
+  redaction.
+- `warc/`: WARC records and CDX lines (pure).
 
 Dependency checks: `cargo audit` and `cargo deny check advisories` must pass
 with no exceptions. If one is ever needed, record it with a written reason in

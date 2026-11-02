@@ -25,6 +25,9 @@ pub struct App {
     pub output_dir: PathBuf,
     /// Do not put files under a directory named for the host.
     pub no_host_directories: bool,
+    /// Save every file directly in `output_dir`, numbering clashing names
+    /// (`--no-directories`). The URL → file record is then kept across runs.
+    pub no_directories: bool,
     /// Leading path directories to drop from local file paths.
     pub cut_dirs: usize,
     /// Add `.html` (or `.css`) to names of HTML (or CSS) documents that lack it.
@@ -64,6 +67,13 @@ pub struct App {
     pub warc_file: Option<PathBuf>,
     /// Crawl and check, but never save files or read them from disk.
     pub spider: bool,
+    /// With `spider`, also check links that leave the scope, once each,
+    /// without crawling them, and report broken ones (`--check-external`).
+    pub check_external: bool,
+    /// For `--check-external`: fixed addresses for host names, bypassing DNS
+    /// and its public-address check, like curl's `--resolve`. Not a command
+    /// line option; for tests and library users who know their network.
+    pub check_external_resolve: Vec<(String, std::net::SocketAddr)>,
     /// Also follow URL-looking strings in JavaScript.
     pub follow_js: bool,
     /// Also fetch what saved pages need to display (`-p`).
@@ -78,6 +88,9 @@ pub struct App {
     pub filter: UrlFilter,
     /// Which media types to download (`--accept-mime`, `--reject-mime`).
     pub mime_filter: MimeFilter,
+    /// Reject patterns read from this file, and re-read when it changes
+    /// during the crawl (`--ignore-file`).
+    pub ignore_file: Option<PathBuf>,
     /// Stop starting new requests after this long; `None` is unlimited.
     pub max_time: Option<Duration>,
     /// How to normalize query strings before URLs are compared.
@@ -101,6 +114,12 @@ pub struct App {
     pub referer: Option<Url>,
     /// Maximum redirects to follow per request; 0 follows none.
     pub max_redirect: usize,
+    /// Fetch up to this many URLs at once (`--max-connections`, default 1:
+    /// one at a time, as with wget).
+    pub max_connections: usize,
+    /// Up to this many requests at once to one host (`--per-host`, default
+    /// 1, at most `max_connections`).
+    pub per_host: usize,
     /// Attempts per URL (network errors, 5xx, and 429 are retried).
     pub tries: u32,
     /// Time limit for one whole request, including its body.
@@ -116,6 +135,7 @@ impl App {
             extra_starts: Vec::new(),
             output_dir: PathBuf::from("."),
             no_host_directories: false,
+            no_directories: false,
             cut_dirs: 0,
             adjust_extension: false,
             default_page: "index.html".to_string(),
@@ -134,6 +154,8 @@ impl App {
             keep_session_cookies: false,
             warc_file: None,
             spider: false,
+            check_external: false,
+            check_external_resolve: Vec::new(),
             follow_js: false,
             page_requisites: false,
             sitemap: false,
@@ -141,6 +163,7 @@ impl App {
             link_selector: None,
             filter: UrlFilter::default(),
             mime_filter: MimeFilter::default(),
+            ignore_file: None,
             max_time: None,
             query_rules: QueryRules::default(),
             span_hosts: false,
@@ -152,6 +175,8 @@ impl App {
             headers: Vec::new(),
             referer: None,
             max_redirect: 20,
+            max_connections: 1,
+            per_host: 1,
             tries: 3,
             timeout: Duration::from_secs(30),
         }

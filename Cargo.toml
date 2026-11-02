@@ -2,8 +2,9 @@
 name = "web-mirror"
 version = "0.1.0"
 edition = "2024"
-# Edition 2024 needs Rust 1.85; the code also uses `Option::is_none_or` (1.82),
-# `LazyLock` (1.80), and `File::set_modified` (1.75).
+# Edition 2024 needs Rust 1.85 and `if let` chains need 1.88; the code also
+# uses `Option::is_none_or` (1.82), `LazyLock` (1.80), and `File::set_modified`
+# (1.75). CI checks the build with this version (the `msrv` job).
 rust-version = "1.99"
 description = "Mirror a website section to disk, like `wget --mirror`"
 authors = ["Joel Parker Henderson <joel@joelparkerhenderson.com>"]
@@ -69,3 +70,6 @@ httpdate = "1.0.3"
 cookie_store = "0.22.1"
 cookie = "0.18.2"
 sha1 = "0.11.0"
+
+[dev-dependencies]
+proptest = "1.12.0"

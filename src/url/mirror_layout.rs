@@ -12,6 +12,9 @@ pub struct MirrorLayout {
     pub cut_dirs: usize,
     /// File name for a URL that names a directory (`--default-page`).
     pub default_page: String,
+    /// Save every file directly in `root`, with no directories at all
+    /// (`-nd`); name clashes are numbered (see `SavedRecord::claim`).
+    pub no_directories: bool,
 }
 
 impl Default for MirrorLayout {
@@ -21,6 +24,7 @@ impl Default for MirrorLayout {
             host_directories: true,
             cut_dirs: 0,
             default_page: "index.html".to_string(),
+            no_directories: false,
         }
     }
 }

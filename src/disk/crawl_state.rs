@@ -5,6 +5,7 @@ use crate::error::error::Error;
 use crate::types::map::Map;
 use crate::types::set::Set;
 use crate::url::from_url_into_redacted_url::from_url_into_redacted_url;
+use crate::url::from_path_into_slash_string::from_path_into_slash_string;
 use ::serde::{Deserialize, Serialize};
 use ::url::Url;
 use std::fs::File;
@@ -137,7 +138,7 @@ impl CrawlState {
                     &mut out,
                     &Line::Done {
                         url: url.to_string(),
-                        path: path.as_ref().map(|p| p.display().to_string()),
+                        path: path.as_ref().map(|p| from_path_into_slash_string(p)),
                         final_url: final_url.as_ref().filter(|f| **f != url).map(Url::to_string),
                         etag: etag.clone(),
                     },
@@ -197,7 +198,7 @@ impl CrawlState {
         }
         self.append(&Line::Done {
             url: from_url_into_redacted_url(url).to_string(),
-            path: path.map(|p| p.display().to_string()),
+            path: path.map(from_path_into_slash_string),
             final_url: (final_url != url).then(|| from_url_into_redacted_url(final_url).to_string()),
             etag: etag.map(str::to_string),
         });

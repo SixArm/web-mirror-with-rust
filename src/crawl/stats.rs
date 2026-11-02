@@ -16,4 +16,8 @@ pub struct Stats {
     /// In-scope URLs skipped by `--accept`, `--reject`, the regexes, or the
     /// directory lists.
     pub rejected: usize,
+    /// External links checked (`--check-external`).
+    pub external_checked: usize,
+    /// External links found broken (also counted in `failed`).
+    pub external_broken: usize,
 }

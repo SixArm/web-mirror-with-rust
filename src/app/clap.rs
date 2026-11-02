@@ -18,11 +18,21 @@ pub fn app() -> Command {
     Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
+        // A later single-valued option replaces an earlier one, so the
+        // command line overrides a --config file (whose options go first).
+        .args_override_self(true)
         .arg(
             Arg::new("url")
                 .help("Start URL; only URLs at or below it are mirrored.\nExample: \"https://www.nhs.uk/conditions/\"")
                 .value_name("URL")
                 .required_unless_present("input-file"),
+        )
+        .arg(
+            Arg::new("config")
+                .help("Read default options from FILE (TOML: long option names as keys, such as\nwait = 2 or reject = [\"*.mp4\"]). Options on the command line override it.")
+                .long("config")
+                .value_name("FILE")
+                .value_parser(clap::value_parser!(PathBuf)),
         )
         .arg(
             Arg::new("test")
@@ -157,6 +167,13 @@ pub fn app() -> Command {
                 .action(ArgAction::SetTrue),
         )
         .arg(
+            Arg::new("check-external")
+                .help("With --spider, also check links that leave the mirror's scope (HEAD, then GET), without\ncrawling them, and report broken ones with the pages that link to them. Only public\naddresses are checked, with no cookies or extra headers.")
+                .long("check-external")
+                .action(ArgAction::SetTrue)
+                .requires("spider"),
+        )
+        .arg(
             Arg::new("rejected-log")
                 .help("Write each URL that was found but not fetched, and why, to FILE (tab-separated).")
                 .long("rejected-log")
@@ -200,6 +217,13 @@ pub fn app() -> Command {
                 .help("Do not follow URLs that match the regular expression REGEX.")
                 .long("reject-regex")
                 .value_name("REGEX"),
+        )
+        .arg(
+            Arg::new("ignore-file")
+                .help("Do not follow URLs that match any regular expression in FILE (one per line, # comments).\nFILE is re-read when it changes during the crawl, and also drops URLs already queued,\nso a crawler trap can be cut off without restarting.")
+                .long("ignore-file")
+                .value_name("FILE")
+                .value_parser(clap::value_parser!(PathBuf)),
         )
         .arg(
             Arg::new("accept-mime")
@@ -277,6 +301,12 @@ pub fn app() -> Command {
             Arg::new("no-host-directories")
                 .help("Do not put files under a directory named for the host (like `wget -nH`).")
                 .long("no-host-directories")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("no-directories")
+                .help("Save every file directly in DIR, with no directories (like `wget -nd`; there is no\n-nd short form, because -n is --number-limit). Clashing names are numbered: index.html,\nindex-1.html, ...; nothing is overwritten, and later runs reuse the same names.")
+                .long("no-directories")
                 .action(ArgAction::SetTrue),
         )
         .arg(
@@ -404,6 +434,22 @@ pub fn app() -> Command {
                 .value_name("AGENT"),
         )
         .arg(
+            Arg::new("max-connections")
+                .help("Fetch up to N URLs at once (1 to 64). Each host still gets one request at a time\n(see --per-host), and --wait and Crawl-delay apply per host.")
+                .long("max-connections")
+                .value_name("N")
+                .value_parser(value_parser!(usize))
+                .default_value("1"),
+        )
+        .arg(
+            Arg::new("per-host")
+                .help("With --max-connections, allow up to N requests at once to the same host\n(at most --max-connections).")
+                .long("per-host")
+                .value_name("N")
+                .value_parser(value_parser!(usize))
+                .default_value("1"),
+        )
+        .arg(
             Arg::new("tries")
                 .help("Attempts per URL.")
                 .short('t')
@@ -461,12 +507,14 @@ pub fn args_from_matches(matches: &ArgMatches) -> Args {
         max_file_size: *matches.get_one::<u64>("max-file-size").unwrap(),
         input_file: matches.get_one::<PathBuf>("input-file").cloned(),
         spider: matches.get_flag("spider"),
+        check_external: matches.get_flag("check-external"),
         rejected_log: matches.get_one::<PathBuf>("rejected-log").cloned(),
         events: matches.get_one::<PathBuf>("events").cloned(),
         accept: strings(matches, "accept"),
         reject: strings(matches, "reject"),
         accept_regex: matches.get_one::<String>("accept-regex").cloned(),
         reject_regex: matches.get_one::<String>("reject-regex").cloned(),
+        ignore_file: matches.get_one::<PathBuf>("ignore-file").cloned(),
         include_directories: strings(matches, "include-directories"),
         exclude_directories: strings(matches, "exclude-directories"),
         accept_mime: strings(matches, "accept-mime"),
@@ -478,6 +526,7 @@ pub fn args_from_matches(matches: &ArgMatches) -> Args {
         span_hosts: matches.get_flag("span-hosts"),
         domains: strings(matches, "domains"),
         no_host_directories: matches.get_flag("no-host-directories"),
+        no_directories: matches.get_flag("no-directories"),
         cut_dirs: *matches.get_one::<usize>("cut-dirs").unwrap(),
         adjust_extension: matches.get_flag("adjust-extension"),
         default_page: matches.get_one::<String>("default-page").cloned().unwrap(),
@@ -486,6 +535,8 @@ pub fn args_from_matches(matches: &ArgMatches) -> Args {
         max_redirect: *matches.get_one::<usize>("max-redirect").unwrap(),
         ignore_robots: matches.get_flag("ignore-robots"),
         user_agent: matches.get_one::<String>("user-agent").cloned(),
+        max_connections: *matches.get_one::<usize>("max-connections").unwrap(),
+        per_host: *matches.get_one::<usize>("per-host").unwrap(),
         tries: *matches.get_one::<u32>("tries").unwrap(),
         timeout: *matches.get_one::<u64>("timeout").unwrap(),
     }
@@ -498,7 +549,44 @@ fn strings(matches: &ArgMatches, id: &str) -> Vec<String> {
 
 /// Create an Args struct from the process command line; exits on bad usage.
 pub fn args() -> Args {
-    args_from_matches(&app().get_matches())
+    match from_argv_into_matches(std::env::args_os().collect()) {
+        Ok(matches) => args_from_matches(&matches),
+        Err(e) => e.exit(),
+    }
+}
+
+/// Parse `argv` (program name first). With `--config=FILE`, the file's
+/// options are put before the command line's, so the command line wins.
+pub fn from_argv_into_matches(argv: Vec<std::ffi::OsString>) -> Result<ArgMatches, clap::Error> {
+    let Some(path) = config_path(&argv) else {
+        return app().try_get_matches_from(argv);
+    };
+    let config_error = |e: crate::error::error::Error| clap::Error::raw(clap::error::ErrorKind::InvalidValue, format!("{e}\n"));
+    let config = crate::app::from_path_into_config::from_path_into_config(&path).map_err(config_error)?;
+    let from_config =
+        crate::app::from_config_and_command_into_arg_list::from_config_and_command_into_arg_list(&config, &app())
+            .map_err(config_error)?;
+    let mut full: Vec<std::ffi::OsString> = argv.iter().take(1).cloned().collect();
+    full.extend(from_config.into_iter().map(Into::into));
+    full.extend(argv.into_iter().skip(1));
+    app().try_get_matches_from(full)
+}
+
+/// The value of `--config FILE` or `--config=FILE`, if given (before any `--`).
+fn config_path(argv: &[std::ffi::OsString]) -> Option<PathBuf> {
+    let mut args = argv.iter().skip(1).map(|a| a.to_string_lossy());
+    while let Some(arg) = args.next() {
+        if arg == "--" {
+            break;
+        }
+        if arg == "--config" {
+            return args.next().map(|v| PathBuf::from(v.as_ref()));
+        }
+        if let Some(value) = arg.strip_prefix("--config=") {
+            return Some(PathBuf::from(value));
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -749,6 +837,7 @@ mod tests {
         assert_eq!(a.reject, ["jpg"]);
         assert_eq!(a.accept_regex.as_deref(), Some("/a/"));
         assert_eq!(a.reject_regex.as_deref(), Some("print"));
+        assert_eq!(parse(&["--ignore-file", "traps.txt", "https://e.com/"]).ignore_file, Some(PathBuf::from("traps.txt")));
         assert_eq!(a.include_directories, ["/a", "/b"]);
         assert_eq!(a.exclude_directories, ["/a/old"]);
         let a = parse(&["--accept-mime", "text/*", "--reject-mime", "video/*,audio/*", "--max-time", "1h30m", "https://e.com/"]);
@@ -799,6 +888,40 @@ mod tests {
         assert!(app().try_get_matches_from(["web-mirror", "-N", "--force", "https://e.com/"]).is_err());
     }
 
+    /// Test --config: the file's options apply, and the command line wins.
+    #[test]
+    fn test_config_file() {
+        let dir = crate::app::testing::temp_dir("clap-config");
+        let path = dir.join("web-mirror.toml");
+        std::fs::write(&path, "level = 2\nwait = 5\nwait-jitter = true\nreject = [\"mp4\"]\n").unwrap();
+        let argv = |rest: &[&str]| -> Vec<std::ffi::OsString> {
+            std::iter::once("web-mirror").chain(rest.iter().copied()).map(Into::into).collect()
+        };
+        let a = args_from_matches(&from_argv_into_matches(argv(&["--config", path.to_str().unwrap(), "https://e.com/"])).unwrap());
+        assert_eq!((a.level, a.wait, a.wait_jitter), (2, 5.0, true));
+        assert_eq!(a.reject, ["mp4"]);
+        let config = format!("--config={}", path.display());
+        let a = args_from_matches(
+            &from_argv_into_matches(argv(&[&config, "--wait", "1", "--reject", "zip", "https://e.com/"])).unwrap(),
+        );
+        assert_eq!((a.level, a.wait), (2, 1.0));
+        assert_eq!(a.reject, ["mp4", "zip"]);
+        // A bad file is a usage error.
+        std::fs::write(&path, "wiat = 1\n").unwrap();
+        assert!(from_argv_into_matches(argv(&["--config", path.to_str().unwrap(), "https://e.com/"])).is_err());
+        assert!(from_argv_into_matches(argv(&["--config", "/no/such/file.toml", "https://e.com/"])).is_err());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Test the parallelism options.
+    #[test]
+    fn test_parallelism() {
+        let a = parse(&["https://e.com/"]);
+        assert_eq!((a.max_connections, a.per_host), (1, 1));
+        let a = parse(&["--max-connections", "8", "--per-host", "2", "https://e.com/"]);
+        assert_eq!((a.max_connections, a.per_host), (8, 2));
+    }
+
     /// Test the archival and refresh options.
     #[test]
     fn test_archival() {
@@ -814,6 +937,8 @@ mod tests {
         assert_eq!(a.save_cookies, Some(PathBuf::from("out.txt")));
         assert_eq!(a.warc_file, Some(PathBuf::from("crawl")));
         assert!(app().try_get_matches_from(["web-mirror", "--keep-session-cookies", "https://e.com/"]).is_err());
+        assert!(parse(&["--spider", "--check-external", "https://e.com/"]).check_external);
+        assert!(app().try_get_matches_from(["web-mirror", "--check-external", "https://e.com/"]).is_err());
     }
 
     /// Test the output layout options.
@@ -833,6 +958,8 @@ mod tests {
         assert_eq!(parse(&["--max-file-size", "0", "https://e.com/"]).max_file_size, 0);
         let a = parse(&["--no-host-directories", "--cut-dirs", "2", "--default-page", "home.htm", "-Q", "1m", "https://e.com/"]);
         assert_eq!((a.no_host_directories, a.cut_dirs, a.default_page.as_str(), a.quota), (true, 2, "home.htm", 1 << 20));
+        assert!(!a.no_directories);
+        assert!(parse(&["--no-directories", "https://e.com/"]).no_directories);
     }
 
     /// Test the argument `--link-selector`.

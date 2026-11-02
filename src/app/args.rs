@@ -93,6 +93,9 @@ pub struct Args {
     /// Crawl and check links, but do not save anything.
     pub spider: bool,
 
+    /// With `spider`, also check links that leave the scope.
+    pub check_external: bool,
+
     /// Write rejected URLs, and why, to this file.
     pub rejected_log: Option<PathBuf>,
 
@@ -110,6 +113,9 @@ pub struct Args {
 
     /// Regular expression that no followed URL may match.
     pub reject_regex: Option<String>,
+
+    /// File of reject patterns, re-read during the crawl.
+    pub ignore_file: Option<PathBuf>,
 
     /// Directories to follow; others are skipped. Example: ["/conditions/acne"]
     pub include_directories: Vec<String>,
@@ -143,6 +149,9 @@ pub struct Args {
 
     /// Do not put files under a directory named for the host.
     pub no_host_directories: bool,
+
+    /// Save every file directly in the output directory.
+    pub no_directories: bool,
 
     /// Leading path directories to drop from local file paths.
     pub cut_dirs: usize,
@@ -184,6 +193,12 @@ pub struct Args {
     /// User-Agent override.
     pub user_agent: Option<String>,
 
+    /// Fetch up to this many URLs at once.
+    pub max_connections: usize,
+
+    /// Up to this many requests at once per host.
+    pub per_host: usize,
+
     /// Attempts per URL.
     pub tries: u32,
 
@@ -216,12 +231,14 @@ impl std::default::Default for Args {
             max_file_size: crate::app::app::DEFAULT_MAX_FILE_SIZE,
             input_file: None,
             spider: false,
+            check_external: false,
             rejected_log: None,
             events: None,
             accept: Vec::new(),
             reject: Vec::new(),
             accept_regex: None,
             reject_regex: None,
+            ignore_file: None,
             include_directories: Vec::new(),
             exclude_directories: Vec::new(),
             accept_mime: Vec::new(),
@@ -233,6 +250,7 @@ impl std::default::Default for Args {
             span_hosts: false,
             domains: Vec::new(),
             no_host_directories: false,
+            no_directories: false,
             cut_dirs: 0,
             adjust_extension: false,
             default_page: "index.html".to_string(),
@@ -246,6 +264,8 @@ impl std::default::Default for Args {
             link_selector: None,
             ignore_robots: false,
             user_agent: None,
+            max_connections: 1,
+            per_host: 1,
             tries: 3,
             timeout: 30,
         }
@@ -271,6 +291,7 @@ impl Args {
         let mut app = App::new(starts.remove(0));
         app.extra_starts = starts;
         app.no_host_directories = self.no_host_directories;
+        app.no_directories = self.no_directories;
         app.cut_dirs = self.cut_dirs;
         app.adjust_extension = self.adjust_extension;
         app.default_page = from_str_into_default_page(&self.default_page)?;
@@ -282,9 +303,14 @@ impl Args {
         app.save_cookies = self.save_cookies;
         app.keep_session_cookies = self.keep_session_cookies;
         app.warc_file = self.warc_file;
+        if self.check_external && !self.spider {
+            return Err(Error::Argument("--check-external needs --spider".into()));
+        }
         app.spider = self.spider;
+        app.check_external = self.check_external;
         app.rejected_log = self.rejected_log;
         app.events = self.events;
+        app.ignore_file = self.ignore_file;
         app.filter = UrlFilter {
             accept: from_list_into_patterns(self.accept),
             reject: from_list_into_patterns(self.reject),
@@ -340,11 +366,22 @@ impl Args {
         if let Some(user_agent) = self.user_agent {
             app.user_agent = user_agent;
         }
+        if !(1..=MAX_CONNECTIONS).contains(&self.max_connections) {
+            return Err(Error::Argument(format!("--max-connections must be from 1 to {MAX_CONNECTIONS}")));
+        }
+        if self.per_host < 1 || self.per_host > self.max_connections {
+            return Err(Error::Argument("--per-host must be from 1 to --max-connections".into()));
+        }
+        app.max_connections = self.max_connections;
+        app.per_host = self.per_host;
         app.tries = self.tries;
         app.timeout = Duration::from_secs(self.timeout);
         Ok(app)
     }
 }
+
+/// The most `--max-connections` allowed: enough for any polite crawl.
+pub const MAX_CONNECTIONS: usize = 64;
 
 /// Trim list entries (from comma-separated options) and drop empty ones.
 fn from_list_into_patterns(list: Vec<String>) -> Vec<String> {
@@ -486,6 +523,15 @@ https://example.com/c/
         assert_eq!(app.domains, ["nhs.uk"]);
         for bad in ["*.nhs.uk", "nhs..uk", "nhs.uk/x", "a b"] {
             assert!(Args { span_hosts: true, domains: vec![bad.into()], ..args() }.into_app().is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn connections_are_validated() {
+        let app = Args { max_connections: 8, per_host: 2, ..args() }.into_app().unwrap();
+        assert_eq!((app.max_connections, app.per_host), (8, 2));
+        for (max, per) in [(0, 1), (MAX_CONNECTIONS + 1, 1), (4, 0), (4, 5)] {
+            assert!(Args { max_connections: max, per_host: per, ..args() }.into_app().is_err(), "{max} {per}");
         }
     }
 
