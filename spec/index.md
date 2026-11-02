@@ -563,7 +563,8 @@ that `from_str_into_safe_segment` makes any string a safe name. Both use
 Fuzz targets (`fuzz/`, `cargo +nightly fuzz`; see `fuzz/README.md`) cover the
 path mapping, safe names, the robots.txt parser, link discovery in HTML, CSS,
 and JavaScript, the `-k` HTML and CSS rewriters (with nothing to rewrite,
-every byte must stay as it was), and sitemap parsing and decompression.
+every byte must stay as it was, except that `<base>` elements are removed),
+and sitemap parsing and decompression.
 
 Continuous integration (`.github/workflows/ci.yml`) runs `cargo fmt --check`
 (style in `rustfmt.toml`), the build, the offline tests, clippy (warnings denied), `cargo doc` (warnings denied),

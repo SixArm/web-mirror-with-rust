@@ -10,7 +10,7 @@ target checks a property, not just "no panic".
 | `safe_segment` | `url/from_str_into_safe_segment.rs` | any string becomes a safe name; a safe name is unchanged |
 | `robots` | `robots/` | any robots.txt, user agent, and path parse and match |
 | `link_discovery` | `crawl/from_bytes_and_url_into_url_list.rs`, `..._requisite_url_list.rs` | any HTML, CSS, or JavaScript bytes yield only http(s) links |
-| `convert_links` | `convert/` (`-k`) | the HTML and CSS scanners never panic, and with nothing to rewrite every byte stays as it was |
+| `convert_links` | `convert/` (`-k`) | the HTML and CSS scanners never panic, and with nothing to rewrite every byte stays as it was (`<base>` elements are removed by design) |
 | `sitemap` | `sitemap/` | any XML, date, or gzip parses; decompression never exceeds its limit |
 
 ## Run
