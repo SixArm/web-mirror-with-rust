@@ -11,7 +11,11 @@ disk, like `wget --mirror`. Entry point: `src/main.rs` → `app::run::run`.
 
 - `spec/index.md` is the specification. Change the spec first, then the code,
   then the tests. Keep README.md, `--help` text, and the spec in agreement.
-- `spec/compare/wget/index.md` maps wget options to ours.
+- `spec/compare/wget/index.md` maps wget options to ours;
+  `spec/compare/index.md` surveys the other tools.
+- `plan.md` (phases and why), `tasks.md` (work items with acceptance
+  criteria), and `spec/proposals/index.md` (proposed behavior). When a task
+  is built, move its proposal into `spec/index.md` and tick it in `tasks.md`.
 - `spec/tests/` holds test rules and expected outputs:
   - `integration-network-tests-must-use-ignore/index.md`: every test that
     touches the network gets `#[ignore = "needs network access; ..."]`.
@@ -38,7 +42,8 @@ The build directory may be set by `CARGO_TARGET_DIR`; find the binary with
 - Deep directories by concern (see "Source directories" in `spec/index.md`).
   Security-relevant code lives where its directory name says: `scope/`
   (what may be fetched), `robots/`, `url/` (URL → path mapping), `disk/`
-  (every file write), `http/` (every network request).
+  (every file write), `http/` (every network request), `cookies/` (which
+  cookies go where). `warc/`, `sitemap/`, and `convert/` are pure (no I/O).
 - A directory's main type lives in a same-named file (`app/app.rs`), so
   `clippy::module_inception` is allowed in `src/lib.rs`.
 - New command line option: add it in `app/clap.rs` (with help text and a parse
@@ -60,6 +65,13 @@ The build directory may be set by `CARGO_TARGET_DIR`; find the binary with
 - Every response body is read with `http/read_body_with_limit.rs`.
 - Never log or send credentials from URLs; redact with
   `url/from_url_into_redacted_url.rs`.
+- Cookies go only to hosts in scope (`cookies/cookie_jar.rs`), are never
+  logged (keep the `cookie_store` log filter in `app/run.rs`), and are saved
+  only with `disk/write_private_file_atomically.rs` (mode 0600). WARC request
+  records redact secret headers (`warc/from_exchange_into_http_message_bytes.rs`).
+- web-mirror's own files in `.web-mirror/` (crawl state, `-k` record) are
+  read as untrusted input: validate every line, and send every URL read back
+  through the normal scope, filter, and robots.txt checks.
 - Durations from outside input go through `crawl/pause.rs`
   `from_seconds_into_duration`, which cannot panic.
 - `cargo audit` and `cargo deny check advisories` pass with no exceptions;
@@ -71,8 +83,11 @@ The build directory may be set by `CARGO_TARGET_DIR`; find the binary with
 Prefer these to live-site tests. In `src/crawl/run.rs` tests, start a
 `TestServer` (in `src/app/testing.rs`) with a closure from `TestRequest` to
 `TestResponse`, build an `App` for `server.url("/docs/")`, `run(&app).await`,
-then check `Stats`, the saved files (`files_under`), and `server.paths()`
-(what was, and was not, requested).
+then check `Stats`, the saved files (`files_under`, which leaves out
+`.web-mirror/`), and `server.paths()` (what was, and was not, requested).
+Every run keeps a crawl state, so a second run on the same directory resumes
+if the first stopped early (`-n`, `-Q`, `--max-time`); set `app.fresh = true`
+to walk again from the start.
 
 ## Live-site tests
 

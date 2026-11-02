@@ -1,4 +1,6 @@
+use crate::filter::mime_filter::MimeFilter;
 use crate::filter::url_filter::UrlFilter;
+use crate::url::query_rules::QueryRules;
 use ::reqwest::header::{HeaderName, HeaderValue};
 use ::url::Url;
 use std::path::PathBuf;
@@ -25,6 +27,8 @@ pub struct App {
     pub no_host_directories: bool,
     /// Leading path directories to drop from local file paths.
     pub cut_dirs: usize,
+    /// Add `.html` (or `.css`) to names of HTML (or CSS) documents that lack it.
+    pub adjust_extension: bool,
     /// File name for a URL that names a directory.
     pub default_page: String,
     /// Seconds between network retrievals.
@@ -46,16 +50,46 @@ pub struct App {
     /// Re-download files that already exist locally only when the server's
     /// copy is newer (a conditional GET with `If-Modified-Since`).
     pub timestamping: bool,
+    /// Ignore the crawl state in `.web-mirror/state.jsonl`: do not resume an
+    /// interrupted crawl, and forget remembered `ETag`s (`--fresh`).
+    pub fresh: bool,
+    /// Load cookies from this Netscape `cookies.txt` file before the crawl.
+    pub load_cookies: Option<PathBuf>,
+    /// Save cookies to this Netscape `cookies.txt` file after the crawl.
+    pub save_cookies: Option<PathBuf>,
+    /// With `save_cookies`, also save session cookies (no expiry time).
+    pub keep_session_cookies: bool,
+    /// Also archive every page request and response in `NAME.warc.gz`
+    /// (WARC 1.1), with a CDX index in `NAME.cdx`.
+    pub warc_file: Option<PathBuf>,
     /// Crawl and check, but never save files or read them from disk.
     pub spider: bool,
     /// Also follow URL-looking strings in JavaScript.
     pub follow_js: bool,
+    /// Also fetch what saved pages need to display (`-p`).
+    pub page_requisites: bool,
+    /// Also crawl the URLs listed in the sites' sitemaps.
+    pub sitemap: bool,
+    /// After the crawl, rewrite links in saved files for offline browsing (`-k`).
+    pub convert_links: bool,
     /// Follow only links inside elements matching this CSS selector.
     pub link_selector: Option<::scraper::Selector>,
     /// Which in-scope URLs to fetch and save.
     pub filter: UrlFilter,
+    /// Which media types to download (`--accept-mime`, `--reject-mime`).
+    pub mime_filter: MimeFilter,
+    /// Stop starting new requests after this long; `None` is unlimited.
+    pub max_time: Option<Duration>,
+    /// How to normalize query strings before URLs are compared.
+    pub query_rules: QueryRules,
+    /// Also fetch from other hosts on `domains` (`-H`).
+    pub span_hosts: bool,
+    /// Domains whose hosts `-H` may reach (`-D`), such as `nhs.uk`.
+    pub domains: Vec<String>,
     /// Write every rejected URL, and why, to this file.
     pub rejected_log: Option<PathBuf>,
+    /// Write one JSON event per URL to this file (`-` is standard output).
+    pub events: Option<PathBuf>,
     /// Do not fetch or obey `/robots.txt`.
     pub ignore_robots: bool,
     /// The `User-Agent` header, which is also the name we look for in
@@ -83,6 +117,7 @@ impl App {
             output_dir: PathBuf::from("."),
             no_host_directories: false,
             cut_dirs: 0,
+            adjust_extension: false,
             default_page: "index.html".to_string(),
             wait: 0.0,
             wait_jitter: false,
@@ -93,11 +128,25 @@ impl App {
             max_file_size: DEFAULT_MAX_FILE_SIZE,
             force: false,
             timestamping: false,
+            fresh: false,
+            load_cookies: None,
+            save_cookies: None,
+            keep_session_cookies: false,
+            warc_file: None,
             spider: false,
             follow_js: false,
+            page_requisites: false,
+            sitemap: false,
+            convert_links: false,
             link_selector: None,
             filter: UrlFilter::default(),
+            mime_filter: MimeFilter::default(),
+            max_time: None,
+            query_rules: QueryRules::default(),
+            span_hosts: false,
+            domains: Vec::new(),
             rejected_log: None,
+            events: None,
             ignore_robots: false,
             user_agent: concat!("web-mirror/", env!("CARGO_PKG_VERSION")).to_string(),
             headers: Vec::new(),

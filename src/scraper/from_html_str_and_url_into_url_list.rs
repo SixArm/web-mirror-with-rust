@@ -1,5 +1,6 @@
 use crate::types::list::List;
 use crate::types::url_string::UrlString;
+use crate::scraper::from_css_str_into_url_str_list::from_css_str_into_url_str_list;
 use crate::url::from_js_str_into_url_str_list::from_js_str_into_url_str_list;
 use crate::url::from_url_str_list_and_base_url_into_url_list::from_url_str_list_and_base_url_into_url_list;
 use ::scraper::{ElementRef, Html, Selector};
@@ -10,8 +11,9 @@ const URL_SELECTOR: &str = "a[href], area[href], link[href], iframe[src], frame[
     img[src], source[src], script[src], embed[src], video[src], audio[src], track[src]";
 const SRCSET_SELECTOR: &str = "img[srcset], source[srcset]";
 
-/// Links in an HTML document at `page_url`. With `follow_js`, also quoted URLs
-/// in inline `<script>` bodies. Fragments are removed; non-http(s) URLs are
+/// Links in an HTML document at `page_url`: URL attributes, `srcset`, and the
+/// CSS in `<style>` elements and `style` attributes. With `follow_js`, also
+/// quoted URLs in inline `<script>` bodies. Fragments are removed; non-http(s) URLs are
 /// dropped. `<base href>` is honoured.
 ///
 /// With `link_selector`, only links inside (or on) elements that match it are
@@ -67,6 +69,17 @@ pub fn from_html_str_and_url_into_url_list(
             );
         }
     }
+    // CSS inside the page: <style> elements and style="..." attributes.
+    let style_sel = Selector::parse("style").unwrap();
+    for el in within(&style_sel) {
+        raw.extend(from_css_str_into_url_str_list(&el.text().collect::<String>()));
+    }
+    let style_attr_sel = Selector::parse("[style]").unwrap();
+    for el in within(&style_attr_sel) {
+        if let Some(v) = el.value().attr("style") {
+            raw.extend(from_css_str_into_url_str_list(v));
+        }
+    }
     if follow_js {
         let script_sel = Selector::parse("script").unwrap();
         for el in within(&script_sel) {
@@ -113,6 +126,21 @@ mod tests {
         assert_eq!(
             strs(from_html_str_and_url_into_url_list(html, &base(), false, None)),
             ["https://h/conditions/z/q"]
+        );
+    }
+
+    #[test]
+    fn css_in_style_elements_and_attributes() {
+        let html = r#"<style>@import "s.css"; a{b:url(bg.png)}</style>
+            <div style="background: url('hero.jpg')"></div>"#;
+        let got = strs(from_html_str_and_url_into_url_list(html, &base(), false, None));
+        assert_eq!(
+            got,
+            [
+                "https://h/conditions/a/s.css",
+                "https://h/conditions/a/bg.png",
+                "https://h/conditions/a/hero.jpg"
+            ]
         );
     }
 

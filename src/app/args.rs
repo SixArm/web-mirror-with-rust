@@ -66,6 +66,21 @@ pub struct Args {
     /// Re-download existing files only when the server's copy is newer.
     pub timestamping: bool,
 
+    /// Ignore the crawl state: do not resume, forget ETags.
+    pub fresh: bool,
+
+    /// Load cookies from this Netscape-format file.
+    pub load_cookies: Option<PathBuf>,
+
+    /// Save cookies to this Netscape-format file after the crawl.
+    pub save_cookies: Option<PathBuf>,
+
+    /// With `save_cookies`, also save session cookies.
+    pub keep_session_cookies: bool,
+
+    /// Also write a WARC archive to `NAME.warc.gz` and `NAME.cdx`.
+    pub warc_file: Option<PathBuf>,
+
     /// Stop after downloading this many bytes in total; 0 is unlimited.
     pub quota: u64,
 
@@ -80,6 +95,9 @@ pub struct Args {
 
     /// Write rejected URLs, and why, to this file.
     pub rejected_log: Option<PathBuf>,
+
+    /// Write one JSON event per URL to this file; "-" is standard output.
+    pub events: Option<PathBuf>,
 
     /// File name suffixes or wildcard patterns to keep. Example: ["pdf"]
     pub accept: Vec<String>,
@@ -99,11 +117,38 @@ pub struct Args {
     /// Directories to skip. Example: ["/conditions/print"]
     pub exclude_directories: Vec<String>,
 
+    /// Media types to download; others are skipped. Example: ["text/*"]
+    pub accept_mime: Vec<String>,
+
+    /// Media types to skip. Example: ["video/*"]
+    pub reject_mime: Vec<String>,
+
+    /// Stop starting new requests after this long; zero is unlimited.
+    pub max_time: Duration,
+
+    /// Query parameters to remove from URLs (wildcards allowed). Example: ["utm_*"]
+    pub strip_query_params: Vec<String>,
+
+    /// Sort query parameters, so their order does not matter.
+    pub sort_query: bool,
+
+    /// Drop query strings entirely.
+    pub ignore_query: bool,
+
+    /// Also fetch from other hosts on `domains`.
+    pub span_hosts: bool,
+
+    /// Domains whose hosts `span_hosts` may reach. Example: ["nhs.uk"]
+    pub domains: Vec<String>,
+
     /// Do not put files under a directory named for the host.
     pub no_host_directories: bool,
 
     /// Leading path directories to drop from local file paths.
     pub cut_dirs: usize,
+
+    /// Add `.html` (or `.css`) to names of HTML (or CSS) documents that lack it.
+    pub adjust_extension: bool,
 
     /// File name for a URL that names a directory.
     pub default_page: String,
@@ -119,6 +164,15 @@ pub struct Args {
 
     /// Also follow URL-looking strings found in JavaScript.
     pub follow_js: bool,
+
+    /// Also fetch what saved pages need to display (stylesheets, images, ...).
+    pub page_requisites: bool,
+
+    /// Also crawl the URLs listed in the sites' sitemaps.
+    pub sitemap: bool,
+
+    /// After the crawl, rewrite links in saved files for offline browsing.
+    pub convert_links: bool,
 
     /// Follow only links inside elements matching this CSS selector.
     /// Example: "main"
@@ -153,24 +207,42 @@ impl std::default::Default for Args {
             rate_limit: 0,
             force: false,
             timestamping: false,
+            fresh: false,
+            load_cookies: None,
+            save_cookies: None,
+            keep_session_cookies: false,
+            warc_file: None,
             quota: 0,
             max_file_size: crate::app::app::DEFAULT_MAX_FILE_SIZE,
             input_file: None,
             spider: false,
             rejected_log: None,
+            events: None,
             accept: Vec::new(),
             reject: Vec::new(),
             accept_regex: None,
             reject_regex: None,
             include_directories: Vec::new(),
             exclude_directories: Vec::new(),
+            accept_mime: Vec::new(),
+            reject_mime: Vec::new(),
+            max_time: Duration::ZERO,
+            strip_query_params: Vec::new(),
+            sort_query: false,
+            ignore_query: false,
+            span_hosts: false,
+            domains: Vec::new(),
             no_host_directories: false,
             cut_dirs: 0,
+            adjust_extension: false,
             default_page: "index.html".to_string(),
             headers: Vec::new(),
             referer: None,
             max_redirect: 20,
             follow_js: false,
+            page_requisites: false,
+            sitemap: false,
+            convert_links: false,
             link_selector: None,
             ignore_robots: false,
             user_agent: None,
@@ -200,12 +272,19 @@ impl Args {
         app.extra_starts = starts;
         app.no_host_directories = self.no_host_directories;
         app.cut_dirs = self.cut_dirs;
+        app.adjust_extension = self.adjust_extension;
         app.default_page = from_str_into_default_page(&self.default_page)?;
         app.quota = self.quota;
         app.max_file_size = self.max_file_size;
         app.timestamping = self.timestamping;
+        app.fresh = self.fresh;
+        app.load_cookies = self.load_cookies;
+        app.save_cookies = self.save_cookies;
+        app.keep_session_cookies = self.keep_session_cookies;
+        app.warc_file = self.warc_file;
         app.spider = self.spider;
         app.rejected_log = self.rejected_log;
+        app.events = self.events;
         app.filter = UrlFilter {
             accept: from_list_into_patterns(self.accept),
             reject: from_list_into_patterns(self.reject),
@@ -224,6 +303,23 @@ impl Args {
             app.referer = Some(url);
         }
         app.max_redirect = self.max_redirect;
+        app.mime_filter = crate::filter::mime_filter::MimeFilter {
+            accept: from_list_into_patterns(self.accept_mime),
+            reject: from_list_into_patterns(self.reject_mime),
+        };
+        app.max_time = (!self.max_time.is_zero()).then_some(self.max_time);
+        app.query_rules = crate::url::query_rules::QueryRules {
+            strip: from_list_into_patterns(self.strip_query_params),
+            sort: self.sort_query,
+            ignore: self.ignore_query,
+        };
+        app.domains = from_list_into_domains(self.domains)?;
+        if self.span_hosts && app.domains.is_empty() {
+            return Err(Error::Argument(
+                "--span-hosts needs --domains, such as --domains=example.com, so the crawl cannot wander the web".into(),
+            ));
+        }
+        app.span_hosts = self.span_hosts;
         app.output_dir = self.directory_prefix;
         app.wait = self.wait;
         app.wait_jitter = self.wait_jitter;
@@ -232,6 +328,9 @@ impl Args {
         app.rate_limit = self.rate_limit;
         app.force = self.force;
         app.follow_js = self.follow_js;
+        app.page_requisites = self.page_requisites;
+        app.sitemap = self.sitemap;
+        app.convert_links = self.convert_links;
         if let Some(css) = &self.link_selector {
             let selector = ::scraper::Selector::parse(css)
                 .map_err(|e| Error::Argument(format!("--link-selector {css:?} is not valid CSS: {e}")))?;
@@ -250,6 +349,22 @@ impl Args {
 /// Trim list entries (from comma-separated options) and drop empty ones.
 fn from_list_into_patterns(list: Vec<String>) -> Vec<String> {
     list.into_iter().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+}
+
+/// Check `--domains` entries: lower-cased, without leading or trailing dots,
+/// and only letters, digits, `-`, and `.` (an IDN must be given in its
+/// `xn--` form), so an entry can only ever mean a domain name.
+fn from_list_into_domains(list: Vec<String>) -> Result<Vec<String>, Error> {
+    from_list_into_patterns(list)
+        .into_iter()
+        .map(|d| {
+            let d = d.trim_matches('.').to_ascii_lowercase();
+            let valid = !d.is_empty()
+                && !d.contains("..")
+                && d.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.');
+            if valid { Ok(d) } else { Err(Error::Argument(format!("--domains {d:?} is not a domain name"))) }
+        })
+        .collect()
 }
 
 /// Compile an optional regular expression option, naming the option on error.
@@ -362,6 +477,16 @@ https://example.com/c/
         assert!(app.referer.is_some());
         assert!(Args { headers: vec!["nope".into()], ..args() }.into_app().is_err());
         assert!(Args { referer: Some("not a url".into()), ..args() }.into_app().is_err());
+    }
+
+    #[test]
+    fn span_hosts_needs_valid_domains() {
+        assert!(Args { span_hosts: true, ..args() }.into_app().is_err());
+        let app = Args { span_hosts: true, domains: vec![".NHS.uk".into()], ..args() }.into_app().unwrap();
+        assert_eq!(app.domains, ["nhs.uk"]);
+        for bad in ["*.nhs.uk", "nhs..uk", "nhs.uk/x", "a b"] {
+            assert!(Args { span_hosts: true, domains: vec![bad.into()], ..args() }.into_app().is_err(), "{bad}");
+        }
     }
 
     #[test]

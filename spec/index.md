@@ -30,10 +30,19 @@ www.nhs.uk/
 - **Follow URLs found in HTML** (`a`, `area`, `link`, `img`, `script`, `iframe`,
   `frame`, `source`, `video`, `audio`, `track`, `embed`; `href`, `src`,
   `srcset`; `<base href>` is honoured).
+- **Follow URLs found in CSS:** `@import` and `url(...)` in stylesheets
+  (`text/css`, or `.css` on disk), in `<style>` elements, and in `style`
+  attributes, resolved against the stylesheet's URL. Parsing is a tolerant
+  tokenizer: comments, quoted and unquoted URLs, and CSS escapes are handled;
+  malformed CSS never stops the crawl.
 - **Do not follow URLs found in JavaScript.** Option `--follow-js` opts in.
 - Fragments are dropped; non-http(s) schemes (`mailto:`, `javascript:`) are ignored.
 - Files are written atomically (`.part` then rename), so an interrupted run never
   leaves a truncated file that a later run would mistake for complete.
+- **Resume an interrupted crawl.** A crawl that stops before its queue runs
+  out (killed, or stopped by `-n`, `-Q`, or `--max-time`) carries on where it
+  stopped the next time the same start URLs are mirrored into the same
+  directory: see "Crawl state". `--fresh` starts over.
 
 ## URL to file mapping
 
@@ -67,6 +76,53 @@ Modeled on `wget`:
 - `--force`: re-download files that already exist
 - `-n, --number-limit=NUMBER`: process at most NUMBER URLs (0 is unlimited)
 - `--rate-limit=RATE`: limit download speed to RATE bytes/second, with optional k/m/g suffix, like `wget --limit-rate` (0 is unlimited)
+- `-p`, `--page-requisites`: also fetch what saved pages need to display, like
+  `wget -p`: stylesheets, icons, images (including `srcset`), scripts, media,
+  embedded objects, and the URLs in stylesheets and inline CSS. Requisites are
+  found in the whole page (not limited by `--link-selector`), are fetched even
+  at the last `--level`, and may be anywhere on the same site (same scheme
+  family, host, and port as a start URL), not only below the start URL. Their
+  own links are not followed, except a stylesheet's. Filters and `robots.txt`
+  still apply. Requisites on other hosts (such as a CDN) need `-H` and `-D`.
+- `-H`, `--span-hosts` with `-D`, `--domains=LIST`: also fetch from other hosts,
+  but only hosts on the listed domains, like `wget -H -D`: page requisites
+  (with `-p`) and linked pages (bounded by `--level`), at any path on those
+  hosts. Domains match on whole labels (`nhs.uk` matches `assets.nhs.uk`, not
+  `evilnhs.uk`); entries must be plain domain names (IDNs in `xn--` form).
+  The start URLs' own hosts never widen: "never above the start URL" still
+  holds there. Each new host gets its own `robots.txt`, fetched the first time
+  a link reaches it; if it cannot be read, that host is skipped and the crawl
+  goes on. Its `Crawl-delay` raises the wait for the rest of the crawl.
+  Redirects may also go to hosts on the listed domains. `-H` without `-D` is
+  an error, so a crawl can never wander the web.
+- `-k`, `--convert-links`: after the crawl, rewrite links in the HTML pages and
+  stylesheets saved or found in this run, so the mirror can be browsed
+  offline, like `wget -k`. A link to a saved file becomes a relative path
+  (`../acne/index.html`, keeping any `#fragment`); a link to anything else
+  becomes absolute, so it still works online; fragment-only and non-http(s)
+  links stay. Rewritten: `href`, `src`, `poster`, `data`, `background`,
+  `srcset`, `style` attributes, `<style>` elements, and `url(...)`/`@import`
+  in stylesheets. Only those values change; every other byte of a file stays
+  as it was. `<base>` is removed. A `%` in a saved name is written `%25` in the
+  link, because browsers decode links. Files that are not UTF-8 are left
+  alone. Converted files keep their modification time (for `-N`).
+  - The record `DIR/.web-mirror/saved.tsv` (`PATH<TAB>URL` per line) says which
+    file holds which URL. When a later run reads a converted page from disk,
+    local links are turned back into the original URLs, so the crawl (and
+    `-N`) asks the server for the real URLs. The record is read defensively:
+    lines with unsafe paths or non-http(s) URLs are ignored.
+- `--sitemap`: also crawl the URLs that the sites' sitemaps list, as if the
+  start page linked to them (depth 1, same scope, filters, and `robots.txt`
+  checks as links). Sitemaps are the `Sitemap:` lines in each start site's
+  `robots.txt`, plus `/sitemap.xml`. Both `<urlset>` and `<sitemapindex>` are
+  read, indexes at most three levels deep; `.xml.gz` files are un-gzipped.
+  Limits (the sitemaps protocol's): 50,000 entries and 50 MiB per file,
+  compressed or not, and at most 1,000,000 URLs in total. A sitemap file
+  must be on a start site (or a `-D` domain with `-H`) and allowed by
+  `robots.txt`. The XML is read by a small scanner that never expands DTDs or
+  external entities. With `-N`, a page whose `<lastmod>` is no newer than its
+  local file is not requested at all. Example: www.nhs.uk's sitemap index
+  lists 8 sitemaps and 56,554 URLs.
 - `--link-selector=CSS`: follow only links inside elements matching the CSS selector, e.g. `main` to skip site-wide header, navigation, and footer links
 - `--follow-js`: also follow URL-looking strings in JavaScript
 
@@ -81,7 +137,43 @@ Input and reporting:
   a link checker.
 - `--rejected-log=FILE`: write each URL that was found but not fetched to FILE,
   tab-separated: `REASON`, `URL`, `PARENT_URL`. Reasons: `SCOPE`, `ROBOTS`,
-  `REGEX`, `SUFFIX`, `DIRECTORY`. Each URL is logged at most once.
+  `REGEX`, `SUFFIX`, `DIRECTORY`, `MIME`. Each URL is logged at most once.
+
+- `--events=FILE`: write one JSON object per line (JSON Lines) for every URL
+  the crawl handles, then a summary, for scripts, dashboards, and AI agents;
+  `-` writes to standard output (the human log goes to standard error).
+  Example:
+
+  ```json
+  {"time":"2026-11-01T17:45:05Z","event":"saved","url":"https://www.nhs.uk/conditions/acne/","parent":"https://www.nhs.uk/conditions/","depth":1,"status":200,"bytes":51234,"path":"www.nhs.uk/conditions/acne/index.html"}
+  ```
+
+  `event` is `saved`, `fetched` (fetched for its links, not saved: `--accept`
+  or `--reject`), `checked` (`--spider`), `exists` (read from disk),
+  `unchanged` (304, `-N`), `failed` (with `error`, and `status` for an HTTP
+  error), `rejected` (with `reason`, as in `--rejected-log`), `blocked`
+  (`robots.txt`), or `summary` (last line, with `stats`). Other fields:
+  `time` (RFC 3339, UTC), `url`, `parent` (the linking page; absent for start
+  URLs), `depth`, `requisite` (true for `-p` requisites), `status`, `bytes`,
+  `path` (relative to the output directory). Fields that do not apply are
+  left out. Credentials are redacted.
+
+URL normalization (applies to start URLs and every discovered link, before
+URLs are compared, so one page is not fetched twice under two spellings):
+
+- Always: an empty query (`page?`) and empty query pieces (`a=1&&b=2`) are
+  removed. The `url` crate already lower-cases the scheme and host, removes
+  the default port, and resolves `.` and `..`.
+- `--strip-query-params=LIST`: remove these query parameters (matched on the
+  percent-decoded name; `*` and `?` wildcards), such as `utm_*,fbclid,gclid`.
+  Comma-separated; may be repeated.
+- `--sort-query`: sort query parameters by name, so `?b=2&a=1` equals `?a=1&b=2`.
+- `--ignore-query`: drop query strings entirely.
+- Kept parameters are byte for byte as the page wrote them (never decoded and
+  re-encoded).
+- Example: every page on www.nhs.uk includes a bot-detection script with a
+  random `?v=`, so `-p` fetches one copy per page; `--strip-query-params v`
+  fetches one.
 
 URL filtering (applies to discovered links; start URLs are always fetched):
 
@@ -93,6 +185,14 @@ URL filtering (applies to discovered links; start URLs are always fetched):
 - `-R`, `--reject=LIST`: the opposite of `--accept`.
 - `--accept-regex=REGEX`, `--reject-regex=REGEX`: match against the whole URL;
   a URL that fails is not fetched at all.
+- `--accept-mime=LIST`, `--reject-mime=LIST`: download only responses whose
+  `Content-Type` matches (or does not match) LIST, such as `text/*` or
+  `video/*,audio/*`: type and subtype, ignoring case and parameters, with `*`
+  and `?` wildcards; no `Content-Type` counts as `application/octet-stream`.
+  Decided when the response headers arrive, before any of the body is read,
+  so an unwanted video is never downloaded. As with `--accept`, HTML pages
+  are still read for their links, just not saved. Rejections are counted,
+  logged as `MIME` in `--rejected-log`, and reported as `rejected` events.
 - `-I`, `--include-directories=LIST`, `-X`, `--exclude-directories=LIST`:
   directories such as `/conditions/acne`, matched on whole path segments
   (`/a` matches `/a` and `/a/b`, not `/ab`); wildcards allowed.
@@ -102,8 +202,17 @@ Output layout:
 - `--no-host-directories`: do not create the host directory (wget's `-nH`;
   there is no `-nH` short form because `-n` is `--number-limit`).
 - `--cut-dirs=N`: drop the first N directories of each URL path.
+- `-E`, `--adjust-extension`: save a document served as HTML (`text/html`,
+  `application/xhtml+xml`) with `.html` added when its name does not end in
+  `.html` or `.htm`, and CSS (`text/css`) with `.css` added, so a browser
+  opens the offline copy correctly, like `wget -E`. The query stays before
+  the extension: `page.php?x=1` → `page@x=1.php.html`. The "never download
+  twice" check finds a file under either name.
 - `--default-page=NAME`: save directory URLs as NAME instead of `index.html`.
   NAME must be a plain file name.
+- `--max-time=DURATION`: stop starting new requests after DURATION: seconds
+  (`90`), or with units `s`, `m`, `h`, `d`, combined (`1h30m`); 0 is
+  unlimited. The request in progress is finished.
 - `-Q`, `--quota=SIZE`: stop starting new downloads once SIZE bytes have been
   downloaded in total (k/m/g suffix; 0 is unlimited). As with wget, the file
   that crosses the quota is finished.
@@ -111,9 +220,27 @@ Output layout:
 HTTP:
 
 - `-N`, `--timestamping`: for files that already exist, send `If-Modified-Since`
-  with the file's time, and download only if the server's copy is newer.
-  Conflicts with `--force`. Saved files always get the server's
-  `Last-Modified` time, so this works on files from earlier runs.
+  with the file's time, and `If-None-Match` with the `ETag` the server gave
+  last time (kept in the crawl state), and download only if the server's copy
+  has changed. Conflicts with `--force`. Saved files always get the server's
+  `Last-Modified` time, so this works on files from earlier runs; the `ETag`
+  makes it work on servers that send no `Last-Modified`.
+- `--fresh`: ignore the crawl state: do not resume an interrupted crawl, and
+  forget remembered `ETag`s.
+- `--load-cookies=FILE`: load cookies from FILE, in the Netscape `cookies.txt`
+  format that browsers (via extensions), wget, and curl write: seven
+  tab-separated fields per line, `#HttpOnly_` prefixes understood, `#`
+  comments skipped, expired cookies dropped; at most 10,000 cookies and
+  16 MiB. Cookie rules (domain, path, `Secure`, expiry) are RFC 6265.
+- `--save-cookies=FILE`: after the crawl, save the cookies (loaded, plus any
+  the servers set) to FILE in the same format, readable only by you (mode
+  0600). Session cookies (no expiry) are left out, as with wget, unless
+  `--keep-session-cookies`.
+- With either cookie option, cookies the servers set during the crawl are
+  kept and sent back for the rest of it, redirects included. Without them, no
+  cookies are sent or kept. Cookies go only to hosts in the mirror's scope
+  (the start URLs' sites, and `-D` hosts with `-H`), even if the file holds
+  cookies for other sites, and are never logged.
 - `--header=STRING`: send an extra request header such as
   `Accept-Language: en-GB`; may be repeated.
 - `--referer=URL`: send `Referer: URL` with every request.
@@ -125,6 +252,65 @@ HTTP:
 - `--log-file-append=FILE`: log messages to FILE instead of the console,
   adding to FILE if it exists (like `wget -a`); the two log-file options
   conflict; file logs have timestamps
+
+Archiving:
+
+- `--warc-file=NAME`: also write every page fetched (pages and requisites)
+  to `NAME.warc.gz` in WARC 1.1, the Internet Archive's format, also written by
+  wget, wpull, and grab-site, plus an index `NAME.cdx`. Both are replaced if
+  they exist, and are written as the crawl goes (a killed run leaves every
+  record but the last readable).
+  - The archive starts with a `warcinfo` record (software, format, user agent,
+    robots policy), then for each fetch a `response` record and a `request`
+    record (`WARC-Concurrent-To` links them). Each record is its own gzip
+    member, so a reader can seek to any record. Records carry
+    `WARC-Block-Digest` and, for responses, `WARC-Payload-Digest` (SHA-1, base
+    32).
+  - The HTTP client decodes compressed bodies and does not reveal the exact
+    bytes on the wire, so the records are rebuilt: the response is its status
+    line, its headers as received (less `Content-Encoding` and
+    `Transfer-Encoding`), the real `Content-Length`, and the decoded body;
+    the request is the request line, `Host`, and the headers web-mirror asked
+    for, with `Authorization`, `Proxy-Authorization`, `Cookie`, and
+    `X-Api-Key` values written as `[redacted]`.
+  - Archived: successful (2xx) responses for pages and requisites. Not
+    archived: `robots.txt`, sitemaps, failed requests, 304s, and the hops of
+    a redirect (the response is archived under its final URL).
+  - The index is the 11-field CDX format (` CDX N b a m s k r M S V g`): SURT
+    key, 14-digit time, URL, media type, status, payload digest, `-`, `-`,
+    compressed record length, offset, and the archive's file name.
+
+## Crawl state
+
+web-mirror keeps `DIR/.web-mirror/state.jsonl` (not with `--spider`, which
+writes nothing): one JSON object per line, appended as the crawl goes.
+
+- `{"t":"run","starts":[...]}`: the first line, naming the start URLs.
+- `{"t":"queued","url":...,"depth":1,"requisite":true,"parent":...}`: a URL
+  that passed the scope, filter, and `robots.txt` checks and joined the queue.
+- `{"t":"done","url":...,"path":...,"final_url":...,"etag":...}`: a queued URL
+  that was handled: saved, read from disk, unchanged (304), fetched for links,
+  or rejected by its media type. Failed URLs are not "done", so a resumed run
+  tries them again.
+- `{"t":"etag","url":...,"etag":...}`: an `ETag` kept from a finished crawl.
+- `{"t":"finished"}`: the queue ran out.
+
+At the start of each run the file is compacted (rewritten through `.part` and
+a rename):
+
+- If the last crawl of the same start URLs did not finish, the run resumes:
+  URLs already done are neither fetched nor read from disk again (files they
+  saved still count for `-k`), and the URLs still queued are checked again
+  (scope, filters, and `robots.txt`, as given this time) and queued first.
+  Sitemaps are not read again. A resumed crawl that runs out of queue is
+  finished.
+- Otherwise the crawl starts from the start URLs, keeping only the `ETag`s.
+- `--fresh` starts over and forgets the `ETag`s.
+
+The file is read defensively: a truncated or garbled line (such as the last
+line of a killed run) is skipped; only http(s) URLs, plain relative paths, and
+`ETag`s of at most 1024 bytes of visible ASCII count; a file over 512 MiB is
+ignored. URLs are written with credentials redacted.
 
 ## Exit codes
 
@@ -151,6 +337,10 @@ Rust crates:
 - `url`: link parser/validator
 - `regex`, `fastrand`: JS URL heuristic, `--accept-regex`/`--reject-regex`, and `--wait-jitter` randomness
 - `httpdate`: HTTP dates for `--timestamping`
+- `serde_json`: `--events` and the crawl state (JSON Lines)
+- `flate2`: gzipped sitemaps and the `--warc-file` archive
+- `cookie_store`, `cookie`: cookie rules (RFC 6265) for `--load-cookies`
+- `sha1`: WARC digests
 
 ## Design notes
 
@@ -161,7 +351,10 @@ Rust crates:
   re-exported `reqwest` client was used; depending on `reqwest` directly
   dropped about 200 unused crates (and the advisories that came with them).
 - Fetching is sequential, as with `wget`, so `--wait` is meaningful.
-- Non-goals for now: `--convert-links` link rewriting, cookies, parallel fetching.
+- Not yet: parallel fetching and smaller conveniences are planned; see
+  `plan.md`, `tasks.md`, and the proposed behavior in
+  `spec/proposals/index.md`. Running JavaScript stays a non-goal (see
+  `spec/compare/index.md`).
 
 ## robots.txt
 
@@ -185,6 +378,10 @@ Rust crates:
 web-mirror downloads content from sites it does not control, so it treats
 every byte from the network as hostile. Guarantees, and where they live:
 
+- **web-mirror's own files never clash with mirrored ones.** They live in
+  `DIR/.web-mirror/`; with host directories no URL can map there, and with
+  `--no-host-directories` a site's own `/.web-mirror/` is saved as
+  `_.web-mirror/`.
 - **Files are only written inside the output directory.** Every URL path
   segment is made safe (`url/from_str_into_safe_segment.rs`): path separators,
   control and Windows-reserved characters become `_`; `.`, `..`, and the empty
@@ -196,8 +393,9 @@ every byte from the network as hostile. Guarantees, and where they live:
   refused (`disk/ensure_no_symlink_below_root.rs`). The `.part` file is created
   fresh with `create_new`, so it can never be a pre-placed link
   (`disk/write_atomically.rs`).
-- **Never requests another site.** A redirect is followed only if it stays on
-  the origin of a start URL, so a page cannot steer requests to other hosts,
+- **Never requests another site** (unless `-H -D` lists it). A redirect is
+  followed only if it stays on the origin of a start URL (or goes to a host on
+  a `-D` domain, with `-H`), so a page cannot steer requests to other hosts,
   local network machines, or cloud metadata addresses
   (`http/from_app_into_redirect_policy.rs`). A redirect's final URL must
   also be in scope (`http/fetch.rs`).
@@ -213,6 +411,14 @@ every byte from the network as hostile. Guarantees, and where they live:
   `--wait` is cut to one day instead of overflowing (`crawl/pause.rs`).
 - **No slow paths on hostile input.** Regexes use the linear-time `regex`
   crate; wildcard matching has no recursion.
+- **Cookies are secrets.** They are sent to, and accepted from, only hosts in
+  scope (`cookies/cookie_jar.rs`), never logged (the cookie crate's own debug
+  logging is turned off), and saved with mode 0600 through a fresh `.part`
+  file (`disk/write_private_file_atomically.rs`). WARC request records redact
+  secret header values.
+- **web-mirror's own state is untrusted on read.** The crawl state and the
+  `-k` record are re-checked line by line, and every URL read back passes the
+  scope, filter, and `robots.txt` checks before it is fetched.
 - **Logs cannot be forged by URLs.** The `url` crate percent-encodes control
   characters, tabs, and newlines, so a URL cannot add lines to the log or the
   rejected log.
@@ -236,7 +442,8 @@ local test server (`TestServer` in `src/app/testing.rs`), so they need no
 network and run with every `cargo test`. They cover scope, `robots.txt`
 (including 429), never downloading twice, `--link-selector`, `--accept`,
 `--reject`, `--spider`, `--rejected-log`, `--quota`, `--number-limit`,
-`--timestamping`, refused off-site redirects, `--max-file-size`,
+`--timestamping` (by date and by `ETag`), resuming an interrupted crawl,
+cookies, `--warc-file`, refused off-site redirects, `--max-file-size`,
 `Retry-After`, and refusing to write through a symbolic link.
 
 Integration tests that use the network are marked `#[ignore]` (see

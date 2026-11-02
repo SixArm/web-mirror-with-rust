@@ -21,6 +21,8 @@ pub fn from_text_and_user_agent_into_robots(text: &str, user_agent: &str) -> Rob
     let ours = from_user_agent_into_product_token(user_agent);
 
     let mut groups: Vec<Group> = Vec::new();
+    // `Sitemap:` lines belong to no group: they apply to every crawler.
+    let mut sitemaps: Vec<String> = Vec::new();
     let mut in_agent_run = false; // consecutive User-agent lines share a group
     for line in text.lines() {
         // Drop the comment, then split `key: value`.
@@ -49,6 +51,12 @@ pub fn from_text_and_user_agent_into_robots(text: &str, user_agent: &str) -> Rob
                     }
                 }
             }
+            "sitemap" => {
+                // Not a group line, so it neither starts nor ends a group.
+                if !value.is_empty() && sitemaps.len() < 1000 {
+                    sitemaps.push(value.to_string());
+                }
+            }
             "crawl-delay" => {
                 in_agent_run = false;
                 if let (Some(g), Ok(d)) = (groups.last_mut(), value.parse::<f64>())
@@ -70,7 +78,7 @@ pub fn from_text_and_user_agent_into_robots(text: &str, user_agent: &str) -> Rob
     let wildcard = |g: &Group| g.agents.iter().any(|a| a == "*");
     let use_specific = groups.iter().any(specific);
 
-    let mut robots = Robots::default();
+    let mut robots = Robots { sitemaps, ..Robots::default() };
     for g in groups
         .into_iter()
         .filter(|g| if use_specific { specific(g) } else { wildcard(g) })
@@ -113,6 +121,15 @@ mod tests {
             "web-mirror",
         );
         assert!(!allowed(&r, "/x"));
+    }
+
+    #[test]
+    fn sitemaps_apply_to_everyone() {
+        let r = from_text_and_user_agent_into_robots(
+            "Sitemap: https://h/sitemap.xml\nUser-agent: other\nDisallow: /\nSitemap: https://h/news.xml\n",
+            "web-mirror/0.1",
+        );
+        assert_eq!(r.sitemaps(), ["https://h/sitemap.xml", "https://h/news.xml"]);
     }
 
     #[test]

@@ -54,6 +54,9 @@ fn initialize_logging(args: &crate::app::args::Args) -> Result<(), crate::error:
     if let Some(level) = args.log_level {
         builder.filter_level(level.to_level_filter());
     }
+    // The cookie crate logs cookie values at debug level; cookies are
+    // secrets, so it never logs below info, whatever the level.
+    builder.filter_module("cookie_store", ::log::LevelFilter::Info);
     builder.format_target(false);
     match crate::app::from_args_into_log_file::from_args_into_log_file(args)? {
         Some(file) => {

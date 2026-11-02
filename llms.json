@@ -13,12 +13,20 @@
       "result": "The A–Z page and every page linked from its main content."
     },
     {
+      "command": "web-mirror \"https://www.nhs.uk/mental-health/conditions/\" --level 1 --link-selector \"main p\" -k -p -E -H -D nhs.uk --strip-query-params v",
+      "result": "A copy to browse offline: pages, stylesheets, images, scripts, with links rewritten to local files."
+    },
+    {
       "command": "web-mirror \"https://example.com/reports/\" --accept pdf",
       "result": "Only the PDFs below the start URL; pages are crawled but not saved."
     },
     {
       "command": "web-mirror \"https://example.com/docs/\" --timestamping",
-      "result": "Refresh a mirror, downloading only pages newer on the server."
+      "result": "Refresh a mirror, downloading only pages changed on the server (Last-Modified and ETag)."
+    },
+    {
+      "command": "web-mirror \"https://example.com/docs/\" -p --warc-file crawl",
+      "result": "Also archive every page and requisite in crawl.warc.gz (WARC 1.1) with a crawl.cdx index."
     },
     {
       "command": "web-mirror \"https://example.com/docs/\" --spider --rejected-log rejected.tsv",
@@ -28,8 +36,9 @@
   "defaults": [
     "Never goes above the start URL",
     "Never downloads a file twice (existing files are read for links)",
+    "Resumes an interrupted crawl from .web-mirror/state.jsonl (--fresh starts over)",
     "Obeys robots.txt and Crawl-delay",
-    "Follows URLs in HTML only (JavaScript with --follow-js)",
+    "Follows URLs in HTML and CSS only (JavaScript with --follow-js)",
     "Sequential requests",
     "At most 1 GiB per file (--max-file-size)",
     "At most 20 redirects, only within the start URLs' sites"
@@ -45,7 +54,11 @@
     "compare_wget": "spec/compare/wget/index.md",
     "agents": "AGENTS.md",
     "llms_txt": "llms.txt",
-    "license": "LICENSE.md"
+    "license": "LICENSE.md",
+    "compare_tools": "spec/compare/index.md",
+    "plan": "plan.md",
+    "tasks": "tasks.md",
+    "proposals": "spec/proposals/index.md"
   },
   "tests": [
     {
@@ -85,5 +98,13 @@
     "test_network": "cargo test -- --ignored",
     "lint": "cargo clippy --all-targets",
     "audit": "cargo audit && cargo deny check advisories"
-  }
+  },
+  "planned": [
+    "--max-connections with per-host limits",
+    "benchmarks against wget and wget2",
+    "--config",
+    "--no-directories",
+    "--check-external",
+    "--ignore-file"
+  ]
 }

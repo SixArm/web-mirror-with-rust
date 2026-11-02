@@ -116,6 +116,26 @@ pub fn app() -> Command {
                 .action(ArgAction::SetTrue),
         )
         .arg(
+            Arg::new("page-requisites")
+                .help("Also fetch what saved pages need to display: stylesheets, images, scripts, fonts, media\n(like `wget -p`). Requisites ignore --level and --link-selector, may be anywhere on the\nsame site, and their own links are not followed.")
+                .short('p')
+                .long("page-requisites")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("sitemap")
+                .help("Also crawl the URLs listed in the sites' sitemaps (Sitemap: lines in robots.txt, and\n/sitemap.xml), as if linked from the start page. They pass the same scope, filters, and\nrobots.txt checks. With -N, a <lastmod> no newer than the local file skips the request.")
+                .long("sitemap")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("convert-links")
+                .help("After the crawl, rewrite links in saved pages and stylesheets so the mirror can be browsed\noffline (like `wget -k`): links to saved files become relative paths, others become absolute.\nKeeps a record in DIR/.web-mirror/ so later runs still ask for the original URLs.")
+                .short('k')
+                .long("convert-links")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
             Arg::new("link-selector")
                 .help("Follow only links inside elements matching the CSS selector CSS.\nExample: --link-selector=main")
                 .long("link-selector")
@@ -140,6 +160,13 @@ pub fn app() -> Command {
             Arg::new("rejected-log")
                 .help("Write each URL that was found but not fetched, and why, to FILE (tab-separated).")
                 .long("rejected-log")
+                .value_name("FILE")
+                .value_parser(value_parser!(PathBuf)),
+        )
+        .arg(
+            Arg::new("events")
+                .help("Write one JSON object per line for every URL handled (saved, exists, unchanged, checked,\nfetched, failed, rejected, blocked), then a summary, to FILE; '-' is standard output.")
+                .long("events")
                 .value_name("FILE")
                 .value_parser(value_parser!(PathBuf)),
         )
@@ -175,6 +202,22 @@ pub fn app() -> Command {
                 .value_name("REGEX"),
         )
         .arg(
+            Arg::new("accept-mime")
+                .help("Download only responses whose Content-Type matches LIST (wildcards allowed), decided\nbefore the body is read; HTML pages are still read for links. Example: --accept-mime='text/*,application/pdf'")
+                .long("accept-mime")
+                .value_name("LIST")
+                .action(ArgAction::Append)
+                .value_delimiter(','),
+        )
+        .arg(
+            Arg::new("reject-mime")
+                .help("Skip responses whose Content-Type matches LIST, before the body is read.\nExample: --reject-mime='video/*,audio/*'")
+                .long("reject-mime")
+                .value_name("LIST")
+                .action(ArgAction::Append)
+                .value_delimiter(','),
+        )
+        .arg(
             Arg::new("include-directories")
                 .help("Follow only URLs in the directories in LIST (wildcards allowed).\nExample: --include-directories=/conditions/acne")
                 .short('I')
@@ -192,11 +235,55 @@ pub fn app() -> Command {
                 .action(ArgAction::Append)
                 .value_delimiter(','),
         )
+        .arg(
+            Arg::new("strip-query-params")
+                .help("Remove these query parameters from every URL before it is compared or fetched\n(wildcards allowed). Example: --strip-query-params='utm_*,fbclid,gclid'")
+                .long("strip-query-params")
+                .value_name("LIST")
+                .action(ArgAction::Append)
+                .value_delimiter(','),
+        )
+        .arg(
+            Arg::new("sort-query")
+                .help("Sort query parameters, so ?b=2&a=1 and ?a=1&b=2 are one URL.")
+                .long("sort-query")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("ignore-query")
+                .help("Drop query strings from every URL.")
+                .long("ignore-query")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("span-hosts")
+                .help("Also fetch from other hosts, but only those on --domains (like `wget -H`):\npage requisites such as fonts and images on a CDN, and linked pages (bounded by --level).")
+                .short('H')
+                .long("span-hosts")
+                .action(ArgAction::SetTrue)
+                .requires("domains"),
+        )
+        .arg(
+            Arg::new("domains")
+                .help("Domains that --span-hosts may reach, matched on whole labels: nhs.uk matches\nassets.nhs.uk, not evilnhs.uk. Example: --domains=nhs.uk")
+                .short('D')
+                .long("domains")
+                .value_name("LIST")
+                .action(ArgAction::Append)
+                .value_delimiter(','),
+        )
         // Output layout.
         .arg(
             Arg::new("no-host-directories")
                 .help("Do not put files under a directory named for the host (like `wget -nH`).")
                 .long("no-host-directories")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("adjust-extension")
+                .help("Save HTML documents with an .html extension, and CSS with .css, when the name lacks it\n(like `wget -E`). Example: page.php → page.php.html")
+                .short('E')
+                .long("adjust-extension")
                 .action(ArgAction::SetTrue),
         )
         .arg(
@@ -224,6 +311,14 @@ pub fn app() -> Command {
                 .default_value("0"),
         )
         .arg(
+            Arg::new("max-time")
+                .help("Stop starting new requests after DURATION: seconds, or with units s, m, h, d\n(0 is unlimited). Example: --max-time=1h30m")
+                .long("max-time")
+                .value_name("DURATION")
+                .value_parser(crate::app::from_str_into_duration::from_str_into_duration)
+                .default_value("0"),
+        )
+        .arg(
             Arg::new("max-file-size")
                 .help("Skip any one file larger than SIZE bytes; suffix k, m, or g (0 is unlimited).\nDownloads are held in memory before saving, so this bounds memory use.")
                 .long("max-file-size")
@@ -239,6 +334,40 @@ pub fn app() -> Command {
                 .long("timestamping")
                 .action(ArgAction::SetTrue)
                 .conflicts_with("force"),
+        )
+        .arg(
+            Arg::new("fresh")
+                .help("Start the crawl afresh: ignore the crawl state in DIR/.web-mirror/state.jsonl, so an\ninterrupted crawl is not resumed and remembered ETags are forgotten.")
+                .long("fresh")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("load-cookies")
+                .help("Load cookies from FILE (Netscape cookies.txt format, as exported by browsers, wget,\nand curl) before the crawl. Cookies are sent only to hosts in the mirror's scope.")
+                .long("load-cookies")
+                .value_name("FILE")
+                .value_parser(clap::value_parser!(PathBuf)),
+        )
+        .arg(
+            Arg::new("save-cookies")
+                .help("Save cookies to FILE (Netscape format) after the crawl, readable only by you.")
+                .long("save-cookies")
+                .value_name("FILE")
+                .value_parser(clap::value_parser!(PathBuf)),
+        )
+        .arg(
+            Arg::new("keep-session-cookies")
+                .help("With --save-cookies, also save session cookies (those with no expiry time).")
+                .long("keep-session-cookies")
+                .action(ArgAction::SetTrue)
+                .requires("save-cookies"),
+        )
+        .arg(
+            Arg::new("warc-file")
+                .help("Also write every page request and response to NAME.warc.gz (WARC 1.1, one gzip\nmember per record) and an index to NAME.cdx.")
+                .long("warc-file")
+                .value_name("NAME")
+                .value_parser(clap::value_parser!(PathBuf)),
         )
         .arg(
             Arg::new("header")
@@ -318,21 +447,39 @@ pub fn args_from_matches(matches: &ArgMatches) -> Args {
         rate_limit: *matches.get_one::<u64>("rate-limit").unwrap(),
         force: matches.get_flag("force"),
         follow_js: matches.get_flag("follow-js"),
+        page_requisites: matches.get_flag("page-requisites"),
+        sitemap: matches.get_flag("sitemap"),
+        convert_links: matches.get_flag("convert-links"),
         link_selector: matches.get_one::<String>("link-selector").cloned(),
         timestamping: matches.get_flag("timestamping"),
+        fresh: matches.get_flag("fresh"),
+        load_cookies: matches.get_one::<PathBuf>("load-cookies").cloned(),
+        save_cookies: matches.get_one::<PathBuf>("save-cookies").cloned(),
+        keep_session_cookies: matches.get_flag("keep-session-cookies"),
+        warc_file: matches.get_one::<PathBuf>("warc-file").cloned(),
         quota: *matches.get_one::<u64>("quota").unwrap(),
         max_file_size: *matches.get_one::<u64>("max-file-size").unwrap(),
         input_file: matches.get_one::<PathBuf>("input-file").cloned(),
         spider: matches.get_flag("spider"),
         rejected_log: matches.get_one::<PathBuf>("rejected-log").cloned(),
+        events: matches.get_one::<PathBuf>("events").cloned(),
         accept: strings(matches, "accept"),
         reject: strings(matches, "reject"),
         accept_regex: matches.get_one::<String>("accept-regex").cloned(),
         reject_regex: matches.get_one::<String>("reject-regex").cloned(),
         include_directories: strings(matches, "include-directories"),
         exclude_directories: strings(matches, "exclude-directories"),
+        accept_mime: strings(matches, "accept-mime"),
+        reject_mime: strings(matches, "reject-mime"),
+        max_time: *matches.get_one::<std::time::Duration>("max-time").unwrap(),
+        strip_query_params: strings(matches, "strip-query-params"),
+        sort_query: matches.get_flag("sort-query"),
+        ignore_query: matches.get_flag("ignore-query"),
+        span_hosts: matches.get_flag("span-hosts"),
+        domains: strings(matches, "domains"),
         no_host_directories: matches.get_flag("no-host-directories"),
         cut_dirs: *matches.get_one::<usize>("cut-dirs").unwrap(),
+        adjust_extension: matches.get_flag("adjust-extension"),
         default_page: matches.get_one::<String>("default-page").cloned().unwrap(),
         headers: strings(matches, "header"),
         referer: matches.get_one::<String>("referer").cloned(),
@@ -604,6 +751,25 @@ mod tests {
         assert_eq!(a.reject_regex.as_deref(), Some("print"));
         assert_eq!(a.include_directories, ["/a", "/b"]);
         assert_eq!(a.exclude_directories, ["/a/old"]);
+        let a = parse(&["--accept-mime", "text/*", "--reject-mime", "video/*,audio/*", "--max-time", "1h30m", "https://e.com/"]);
+        assert_eq!((a.accept_mime.len(), a.reject_mime.len(), a.max_time.as_secs()), (1, 2, 5400));
+    }
+
+    /// Test `-H` and `-D`: `-H` requires `-D`.
+    #[test]
+    fn test_span_hosts() {
+        let a = parse(&["-H", "-D", "nhs.uk,nhs.net", "https://e.com/"]);
+        assert!(a.span_hosts);
+        assert_eq!(a.domains, ["nhs.uk", "nhs.net"]);
+        assert!(app().try_get_matches_from(["web-mirror", "-H", "https://e.com/"]).is_err());
+    }
+
+    /// Test the query normalization options.
+    #[test]
+    fn test_query_options() {
+        let a = parse(&["--strip-query-params", "utm_*,v", "--sort-query", "--ignore-query", "https://e.com/"]);
+        assert_eq!(a.strip_query_params, ["utm_*", "v"]);
+        assert!(a.sort_query && a.ignore_query);
     }
 
     /// Test the input and reporting options; `--input-file` makes the URL optional.
@@ -614,6 +780,7 @@ mod tests {
         assert_eq!(a.input_file, Some(PathBuf::from("urls.txt")));
         assert!(a.spider);
         assert_eq!(a.rejected_log, Some(PathBuf::from("r.tsv")));
+        assert_eq!(parse(&["--events", "-", "https://e.com/"]).events, Some(PathBuf::from("-")));
     }
 
     /// Test the HTTP options.
@@ -632,12 +799,37 @@ mod tests {
         assert!(app().try_get_matches_from(["web-mirror", "-N", "--force", "https://e.com/"]).is_err());
     }
 
+    /// Test the archival and refresh options.
+    #[test]
+    fn test_archival() {
+        let a = parse(&["https://e.com/"]);
+        assert!(!a.fresh && !a.keep_session_cookies);
+        assert_eq!((a.load_cookies, a.save_cookies, a.warc_file), (None, None, None));
+        let a = parse(&[
+            "--fresh", "--load-cookies", "in.txt", "--save-cookies", "out.txt", "--keep-session-cookies",
+            "--warc-file", "crawl", "https://e.com/",
+        ]);
+        assert!(a.fresh && a.keep_session_cookies);
+        assert_eq!(a.load_cookies, Some(PathBuf::from("in.txt")));
+        assert_eq!(a.save_cookies, Some(PathBuf::from("out.txt")));
+        assert_eq!(a.warc_file, Some(PathBuf::from("crawl")));
+        assert!(app().try_get_matches_from(["web-mirror", "--keep-session-cookies", "https://e.com/"]).is_err());
+    }
+
     /// Test the output layout options.
     #[test]
     fn test_output_layout() {
         let a = parse(&["https://e.com/"]);
         assert_eq!((a.no_host_directories, a.cut_dirs, a.default_page.as_str(), a.quota), (false, 0, "index.html", 0));
         assert_eq!(a.max_file_size, 1 << 30);
+        assert!(!a.adjust_extension);
+        assert!(!a.page_requisites);
+        assert!(parse(&["-p", "https://e.com/"]).page_requisites);
+        assert!(!a.convert_links);
+        assert!(parse(&["-k", "https://e.com/"]).convert_links);
+        assert!(!a.sitemap);
+        assert!(parse(&["--sitemap", "https://e.com/"]).sitemap);
+        assert!(parse(&["-E", "https://e.com/"]).adjust_extension);
         assert_eq!(parse(&["--max-file-size", "0", "https://e.com/"]).max_file_size, 0);
         let a = parse(&["--no-host-directories", "--cut-dirs", "2", "--default-page", "home.htm", "-Q", "1m", "https://e.com/"]);
         assert_eq!((a.no_host_directories, a.cut_dirs, a.default_page.as_str(), a.quota), (true, 2, "home.htm", 1 << 20));

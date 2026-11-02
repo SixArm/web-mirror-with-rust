@@ -1,12 +1,22 @@
 # Compare wget
 
-| wget option       | web-mirror option |
-| ----------------- | ----------------- |
-| --no-parent       | --cap             |
-| --wait            | --wait            |
-| --random-wait     | --wait-jitter     |
-| --convert-links   | 🛇                 |
-| --page-requisites | 🛇                 |
+Summary of the most-used mirroring options. Planned options are proposed in
+`spec/proposals/index.md` and scheduled in `plan.md`; the wider tool landscape
+is in `spec/compare/index.md`.
+
+| wget option         | web-mirror option            |
+| ------------------- | ---------------------------- |
+| --mirror            | default (recursive, unlimited depth); its `-N` is our `-N`, `--timestamping` |
+| --no-parent         | always on (scope)            |
+| --wait              | --wait                       |
+| --random-wait       | --wait-jitter                |
+| --convert-links     | -k, --convert-links          |
+| --page-requisites   | -p, --page-requisites        |
+| --adjust-extension  | -E, --adjust-extension       |
+| --span-hosts, --domains | -H, --span-hosts; -D, --domains |
+| --warc-file         | --warc-file (WARC 1.1 and CDX; records rebuilt from decoded bodies) |
+| --load-cookies, --save-cookies, --keep-session-cookies | the same (Netscape format; cookies only to hosts in scope) |
+| -c, --continue (for a whole crawl) | automatic: an interrupted crawl resumes from `.web-mirror/state.jsonl`; `--fresh` starts over |
 
 Startup:
 
@@ -98,7 +108,7 @@ HTTP options:
 | --http-password=PASS || set http password to PASS
 | --no-cache || disallow server-cached data
 | --default-page=NAME | --default-page | change the default page name (normally this is 'index.html'.)
-| -E, --adjust-extension || save HTML/CSS documents with proper extensions
+| -E, --adjust-extension | -E, --adjust-extension | save HTML/CSS documents with proper extensions
 | --ignore-length || ignore 'Content-Length' header field
 | --header=STRING | --header | insert STRING among the headers
 | --compression=TYPE || choose compression, one of auto, gzip and none. (default: none)
@@ -110,9 +120,9 @@ HTTP options:
 | -U, --user-agent=AGENT | -U, --user-agent | identify as AGENT instead of Wget/VERSION
 | --no-http-keep-alive || disable HTTP keep-alive (persistent connections)
 | --no-cookies || don't use cookies
-| --load-cookies=FILE || load cookies from FILE before session
-| --save-cookies=FILE || save cookies to FILE after session
-| --keep-session-cookies || load and save session (non-permanent) cookies
+| --load-cookies=FILE | --load-cookies | load cookies from FILE before session
+| --save-cookies=FILE | --save-cookies | save cookies to FILE after session
+| --keep-session-cookies | --keep-session-cookies | load and save session (non-permanent) cookies
 | --post-data=STRING || use the POST method; send STRING as the data
 | --post-file=FILE || use the POST method; send contents of FILE
 | --method=HTTPMethod || use method "HTTPMethod" in the request
@@ -147,12 +157,12 @@ Recursive download:
 | -r, --recursive || specify recursive download
 | -l, --level=NUMBER | -l, --level | maximum recursion depth (inf or 0 for infinite)
 | --delete-after || delete files locally after downloading them
-| -k, --convert-links || make links in downloaded HTML or CSS point to local files
+| -k, --convert-links | -k, --convert-links | make links in downloaded HTML or CSS point to local files
 | --convert-file-only || convert the file part of the URLs only (usually known as the basename)
 | --backups=N || before writing file X, rotate up to N backup files
 | -K, --backup-converted || before converting file X, back up as X.orig
 | -m, --mirror || shortcut for -N -r -l inf --no-remove-listing
-| -p, --page-requisites || get all images, etc. needed to display HTML page
+| -p, --page-requisites | -p, --page-requisites | get all images, etc. needed to display HTML page
 | --strict-comments || turn on strict (SGML) handling of HTML comments
 
 Recursive accept/reject:
@@ -164,12 +174,12 @@ Recursive accept/reject:
 | --accept-regex=REGEX | --accept-regex | regex matching accepted URLs
 | --reject-regex=REGEX | --reject-regex | regex matching rejected URLs
 | --regex-type=TYPE || regex type (posix)
-| -D, --domains=LIST || comma-separated list of accepted domains
+| -D, --domains=LIST | -D, --domains | comma-separated list of accepted domains
 | --exclude-domains=LIST || comma-separated list of rejected domains
 | --follow-ftp || follow FTP links from HTML documents
 | --follow-tags=LIST || comma-separated list of followed HTML tags
 | --ignore-tags=LIST || comma-separated list of ignored HTML tags
-| -H, --span-hosts || go to foreign hosts when recursive
+| -H, --span-hosts | -H, --span-hosts | go to foreign hosts when recursive
 | -L, --relative || follow relative links only
 | -I, --include-directories=LIST | -I, --include-directories | list of allowed directories
 | --trust-server-names || use the name specified by the redirection URL's last component

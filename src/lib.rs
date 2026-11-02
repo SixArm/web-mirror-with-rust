@@ -19,8 +19,12 @@
 //! * `filter/`  – which in-scope URLs the user wants (accept, reject, directories)
 //! * `url/`     – URL parsing and URL → local file path mapping
 //! * `scraper/` – HTML parsing and link discovery
+//! * `sitemap/` – sitemap parsing (pure, no I/O)
+//! * `warc/`    – WARC records and CDX index lines (pure, no I/O)
 //! * `http/`    – network access (HTTP client, fetch, robots.txt fetch)
+//! * `cookies/` – which cookies go with which request (only to hosts in scope)
 //! * `disk/`    – every write to the local file system
+//! * `convert/` – `--convert-links` text rewriting (pure, no I/O)
 //! * `crawl/`   – the crawl loop that ties the above together
 //! * `app/`     – the `App` configuration, command line arguments, program entry point
 
@@ -29,6 +33,8 @@
 #![allow(clippy::module_inception)]
 
 pub mod app; // App configuration, command line, program entry point.
+pub mod convert; // --convert-links: rewrite links for offline browsing.
+pub mod cookies; // --load-cookies, --save-cookies.
 pub mod crawl; // The crawl loop.
 pub mod disk; // Every write to the local file system.
 pub mod error; // The crate's error type.
@@ -37,7 +43,10 @@ pub mod http; // Every network request.
 pub mod robots; // robots.txt rules.
 pub mod scope; // What we may fetch at all.
 pub mod scraper; // HTML parsing and link discovery.
+pub mod sitemap; // Sitemap parsing (--sitemap).
+pub mod time; // Timestamps for --events.
 pub mod url; // URL parsing and URL → file path mapping.
+pub mod warc; // WARC records and CDX lines (--warc-file).
 
 // Our semantic type vocabulary (List, Queue, Set, UrlString, ...). Its doc
 // examples are illustrative, not runnable, so `Cargo.toml` sets `doctest = false`.

@@ -46,6 +46,11 @@ pub enum Error {
     )]
     Robots { url: String, detail: String },
 
+    /// The response's `Content-Type` is not wanted (`--accept-mime`,
+    /// `--reject-mime`); its body was not downloaded.
+    #[error("{url} is {mime}, which --accept-mime/--reject-mime turn away; skipped")]
+    MimeRejected { url: String, mime: String },
+
     /// The response was larger than `--max-file-size`.
     #[error("{url} is larger than --max-file-size ({limit} bytes); skipped")]
     TooLarge { url: String, limit: u64 },

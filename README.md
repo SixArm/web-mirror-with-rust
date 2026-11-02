@@ -22,8 +22,9 @@ www.nhs.uk/
 
 - **Never goes above the start URL**, like `wget --no-parent`, always.
 - **Never downloads a file twice.** Existing files are read from disk to find
-  their links, so an interrupted run picks up where it stopped. Use `--force`
-  to re-download, or `-N` to re-download only what changed on the server.
+  their links, and an interrupted crawl resumes from its queue the next time
+  (`--fresh` starts over). Use `--force` to re-download, or `-N` to
+  re-download only what changed on the server (by date and `ETag`).
 - **Polite by default.** Obeys `robots.txt` and its `Crawl-delay`; sequential
   requests; `--wait`, `--wait-jitter`, and `--rate-limit` for more.
 - **Safe with hostile sites.** Never writes outside the output directory,
@@ -50,6 +51,17 @@ content, skipping the site header, navigation, and footer:
 web-mirror "https://www.nhs.uk/conditions/" --level 1 --link-selector main
 ```
 
+A copy you can browse offline: pages, their stylesheets, images, and
+scripts, with links rewritten to the local files:
+
+```sh
+web-mirror "https://www.nhs.uk/mental-health/conditions/" --level 1 --link-selector "main p" -k -p -E
+```
+
+Add `-H -D nhs.uk` to include fonts and scripts from other NHS hosts, such as
+`assets.nhs.uk`, and `--strip-query-params v` to fetch the site's
+bot-detection script once instead of once per page.
+
 Only the links inside paragraphs (for example, to skip promotional cards):
 
 ```sh
@@ -75,10 +87,29 @@ Refresh an existing mirror, downloading only pages that changed:
 web-mirror "https://example.com/docs/" --timestamping
 ```
 
+Archive a crawl for replay tools such as pywb (`crawl.warc.gz` and
+`crawl.cdx`), as well as saving the files:
+
+```sh
+web-mirror "https://example.com/docs/" -p --warc-file crawl
+```
+
+Mirror pages that need a login, with cookies exported from a browser:
+
+```sh
+web-mirror "https://example.com/members/" --load-cookies cookies.txt
+```
+
 Check links without saving anything, and log why URLs were skipped:
 
 ```sh
 web-mirror "https://example.com/docs/" --spider --rejected-log rejected.tsv
+```
+
+Watch a crawl as JSON, one line per URL (logs stay on standard error):
+
+```sh
+web-mirror "https://example.com/docs/" --events - | jq -c '{event, url, status}'
 ```
 
 Mirror several sections, listed in a file (one URL per line, `#` comments):
@@ -99,13 +130,16 @@ Run `web-mirror --help` for the full list. In brief:
 
 | Area | Options |
 | ---- | ------- |
-| Scope and depth | `-l, --level`, `-n, --number-limit`, `--link-selector`, `--follow-js` |
-| Filters | `-A, --accept`, `-R, --reject`, `--accept-regex`, `--reject-regex`, `-I, --include-directories`, `-X, --exclude-directories` |
-| Input and reporting | `-i, --input-file`, `--spider`, `--rejected-log`, `-v, --verbose`, `--log-file-create`, `--log-file-append` |
-| Politeness and limits | `-w, --wait`, `--wait-jitter`, `--rate-limit`, `-Q, --quota`, `--max-file-size`, `--ignore-robots` |
-| Re-downloading | `--force`, `-N, --timestamping` |
-| Output layout | `-P, --directory-prefix`, `--no-host-directories`, `--cut-dirs`, `--default-page` |
-| HTTP | `-U, --user-agent`, `--header`, `--referer`, `--max-redirect`, `-t, --tries`, `-T, --timeout` |
+| Scope and depth | `-l, --level`, `-n, --number-limit`, `--link-selector`, `-p, --page-requisites`, `--sitemap`, `--follow-js` |
+| URL normalization | `--strip-query-params`, `--sort-query`, `--ignore-query` |
+| Filters | `-A, --accept`, `-R, --reject`, `--accept-mime`, `--reject-mime`, `--accept-regex`, `--reject-regex`, `-I, --include-directories`, `-X, --exclude-directories` |
+| Input and reporting | `-i, --input-file`, `--spider`, `--rejected-log`, `--events`, `-v, --verbose`, `--log-file-create`, `--log-file-append` |
+| Politeness and limits | `-w, --wait`, `--wait-jitter`, `--rate-limit`, `-Q, --quota`, `--max-time`, `--max-file-size`, `--ignore-robots` |
+| Re-downloading and resuming | `--force`, `-N, --timestamping`, `--fresh` |
+| Archiving | `--warc-file` |
+| Offline browsing | `-k, --convert-links`, `-p, --page-requisites`, `-E, --adjust-extension`, `-H, --span-hosts` with `-D, --domains` |
+| Output layout | `-P, --directory-prefix`, `-E, --adjust-extension`, `--no-host-directories`, `--cut-dirs`, `--default-page` |
+| HTTP | `-U, --user-agent`, `--header`, `--referer`, `--max-redirect`, `-t, --tries`, `-T, --timeout`, `--load-cookies`, `--save-cookies`, `--keep-session-cookies` |
 
 Sizes take `k`, `m`, or `g` suffixes (powers of 1024). For each option's
 exact behavior, see [the specification](spec/index.md#options); for the
@@ -137,7 +171,8 @@ cargo audit                    # security advisories
 ```
 
 The specification, [spec/index.md](spec/index.md), is the single source of
-truth. Contributors and AI agents: read [AGENTS.md](AGENTS.md).
+truth. The roadmap is in [plan.md](plan.md) and [tasks.md](tasks.md), based on
+a [survey of similar tools](spec/compare/index.md). Contributors and AI agents: read [AGENTS.md](AGENTS.md).
 
 ## License
 

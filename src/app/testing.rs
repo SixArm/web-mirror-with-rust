@@ -40,7 +40,8 @@ pub fn assert_command_stdout_contains(mut command: std::process::Command, inner:
     );
 }
 
-/// Every file under `dir`, as sorted paths relative to `dir`.
+/// Every file under `dir`, as sorted paths relative to `dir`, leaving out
+/// web-mirror's own `dir/.web-mirror/` (the crawl state is not part of the mirror).
 #[allow(dead_code)]
 pub fn files_under(dir: &std::path::Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
@@ -48,6 +49,10 @@ pub fn files_under(dir: &std::path::Path) -> Vec<PathBuf> {
     while let Some(d) = stack.pop() {
         for entry in std::fs::read_dir(&d).unwrap() {
             let path = entry.unwrap().path();
+            // web-mirror's own state directory is not part of the mirror.
+            if path.is_dir() && path.file_name().is_some_and(|n| n == crate::disk::saved_record::STATE_DIR) && d == dir {
+                continue;
+            }
             if path.is_dir() {
                 stack.push(path);
             } else {

@@ -39,8 +39,16 @@ pub fn from_mirror_layout_and_url_into_path_buf(layout: &MirrorLayout, url: &Url
         };
         file = from_str_into_safe_segment(&format!("{stem}@{query}{ext}"));
     }
-    out.extend(segments.iter().skip(layout.cut_dirs).map(|s| from_str_into_safe_segment(s)));
-    out.push(file);
+    let mut parts: Vec<String> = segments.iter().skip(layout.cut_dirs).map(|s| from_str_into_safe_segment(s)).collect();
+    parts.push(file);
+    // web-mirror keeps its own files in `root/.web-mirror/`. With host
+    // directories every URL is under `root/<host>/`, so it cannot clash; without
+    // them, a site's own `/.web-mirror/...` is renamed so it can never
+    // overwrite web-mirror's files.
+    if !layout.host_directories && parts[0] == crate::disk::saved_record::STATE_DIR {
+        parts[0].insert(0, '_');
+    }
+    out.extend(parts);
     out
 }
 
@@ -75,6 +83,15 @@ mod tests {
     fn no_host_directories() {
         let l = MirrorLayout { host_directories: false, ..layout() };
         assert_eq!(p(&l, "https://h/a/b.pdf"), PathBuf::from("out/a/b.pdf"));
+    }
+
+    #[test]
+    fn never_clashes_with_the_state_directory() {
+        let l = MirrorLayout { host_directories: false, ..layout() };
+        assert_eq!(p(&l, "https://h/.web-mirror/saved.tsv"), PathBuf::from("out/_.web-mirror/saved.tsv"));
+        let l = MirrorLayout { host_directories: false, cut_dirs: 1, ..layout() };
+        assert_eq!(p(&l, "https://h/a/.web-mirror/saved.tsv"), PathBuf::from("out/_.web-mirror/saved.tsv"));
+        assert_eq!(p(&layout(), "https://h/.web-mirror/saved.tsv"), PathBuf::from("out/h/.web-mirror/saved.tsv"));
     }
 
     #[test]

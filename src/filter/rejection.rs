@@ -11,6 +11,8 @@ pub enum Rejection {
     Suffix,
     /// Failed `--include-directories` or matched `--exclude-directories`.
     Directory,
+    /// Its `Content-Type` failed `--accept-mime` or matched `--reject-mime`.
+    Mime,
 }
 
 impl Rejection {
@@ -22,6 +24,7 @@ impl Rejection {
             Rejection::Regex => "REGEX",
             Rejection::Suffix => "SUFFIX",
             Rejection::Directory => "DIRECTORY",
+            Rejection::Mime => "MIME",
         }
     }
 }
@@ -37,5 +40,6 @@ mod tests {
         assert_eq!(Rejection::Regex.as_str(), "REGEX");
         assert_eq!(Rejection::Suffix.as_str(), "SUFFIX");
         assert_eq!(Rejection::Directory.as_str(), "DIRECTORY");
+        assert_eq!(Rejection::Mime.as_str(), "MIME");
     }
 }

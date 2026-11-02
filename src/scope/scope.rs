@@ -1,5 +1,6 @@
 //! Crawl scope: a URL is in scope only if it is at or below the start URL.
 
+use crate::scope::from_host_and_domain_into_is_on_domain::from_host_and_domain_into_is_on_domain;
 use url::Url;
 
 /// The longest URL we will fetch, in bytes. Real pages stay far below this;
@@ -21,9 +22,15 @@ pub const MAX_URL_BYTES: usize = 4096;
 ///
 /// A scope can hold several start URLs (`--input-file`); a URL is then in
 /// scope when it is at or below any of them.
+///
+/// With `-H`, `--span-hosts`, a scope also holds a list of domains (`-D`):
+/// URLs on *other* hosts on those domains are in scope at any path. The start
+/// URLs' own hosts never widen: on them, the rules above still apply.
 #[derive(Debug, Clone)]
 pub struct Scope {
     roots: Vec<Root>,
+    /// Domains whose other hosts are in scope (`-H` with `-D`); empty means none.
+    domains: Vec<String>,
 }
 
 /// One start URL's part of the scope.
@@ -37,7 +44,7 @@ struct Root {
 impl Scope {
     /// The scope of one start URL: it and everything below it.
     pub fn new(start: &Url) -> Self {
-        Self { roots: vec![Root::new(start)] }
+        Self { roots: vec![Root::new(start)], domains: Vec::new() }
     }
 
     /// Widen the scope to also hold everything at or below `start`.
@@ -45,13 +52,37 @@ impl Scope {
         self.roots.push(Root::new(start));
     }
 
+    /// Allow URLs on other hosts on these domains (`-H` with `-D`).
+    pub fn set_domains(&mut self, domains: &[String]) {
+        self.domains = domains.to_vec();
+    }
+
+    /// Is `url` on a listed domain, and on a host other than the start URLs'?
+    fn on_other_listed_host(&self, url: &Url) -> bool {
+        matches!(url.scheme(), "http" | "https")
+            && !self.roots.iter().any(|root| root.contains_site(url))
+            && url.host_str().is_some_and(|host| {
+                self.domains.iter().any(|domain| from_host_and_domain_into_is_on_domain(host, domain))
+            })
+    }
+
+    /// No credentials and not too long: the checks every URL must pass first.
+    fn is_plain(url: &Url) -> bool {
+        url.username().is_empty() && url.password().is_none() && url.as_str().len() <= MAX_URL_BYTES
+    }
+
+    /// May we fetch `url` as a page requisite (`-p`)? Like [`Scope::contains`],
+    /// but at any path on a start URL's site, because a page's stylesheets
+    /// and images often live outside its directory (such as `/assets/`).
+    pub fn contains_requisite(&self, url: &Url) -> bool {
+        Self::is_plain(url)
+            && (self.roots.iter().any(|root| root.contains_site(url)) || self.on_other_listed_host(url))
+    }
+
     /// May we fetch `url`? This is the check every queued URL and every
     /// redirect target must pass.
     pub fn contains(&self, url: &Url) -> bool {
-        url.username().is_empty()
-            && url.password().is_none()
-            && url.as_str().len() <= MAX_URL_BYTES
-            && self.roots.iter().any(|root| root.contains(url))
+        Self::is_plain(url) && (self.roots.iter().any(|root| root.contains(url)) || self.on_other_listed_host(url))
     }
 }
 
@@ -73,6 +104,13 @@ impl Root {
             port: start.port_or_known_default(),
             prefix,
         }
+    }
+
+    /// Same scheme family, host, and port, at any path.
+    fn contains_site(&self, url: &Url) -> bool {
+        matches!(url.scheme(), "http" | "https")
+            && url.host_str().map(str::to_ascii_lowercase).as_deref() == Some(self.host.as_str())
+            && url.port_or_known_default() == self.port
     }
 
     /// Same scheme family (http or https), same host (ignoring case), same
@@ -138,6 +176,28 @@ mod tests {
         assert!(!has(&s, "https://user:pass@www.nhs.uk/conditions/a/"));
         let long = format!("https://www.nhs.uk/conditions/{}", "a".repeat(MAX_URL_BYTES));
         assert!(!has(&s, &long));
+    }
+
+    #[test]
+    fn requisites_may_be_anywhere_on_the_site() {
+        let s = scope("https://www.nhs.uk/conditions/");
+        assert!(s.contains_requisite(&Url::parse("https://www.nhs.uk/assets/s.css").unwrap()));
+        assert!(!s.contains_requisite(&Url::parse("https://cdn.nhs.uk/assets/s.css").unwrap()));
+        assert!(!s.contains_requisite(&Url::parse("https://u:p@www.nhs.uk/a.css").unwrap()));
+        assert!(!has(&s, "https://www.nhs.uk/assets/s.css"));
+    }
+
+    #[test]
+    fn span_hosts_on_listed_domains_only() {
+        let mut s = scope("https://www.nhs.uk/conditions/");
+        assert!(!has(&s, "https://assets.nhs.uk/fonts/a.woff"));
+        s.set_domains(&["nhs.uk".to_string()]);
+        assert!(has(&s, "https://assets.nhs.uk/fonts/a.woff"));
+        assert!(s.contains_requisite(&Url::parse("https://assets.nhs.uk/fonts/a.woff").unwrap()));
+        assert!(!has(&s, "https://evilnhs.uk/a"));
+        assert!(!has(&s, "https://user@assets.nhs.uk/a"));
+        // The start host keeps its own rule: never above the start URL.
+        assert!(!has(&s, "https://www.nhs.uk/medicines/"));
     }
 
     #[test]
