@@ -8,10 +8,10 @@ they list options. "Offline test" means a `TestServer` test in
 
 ## Continuous
 
-- [ ] **CI workflow** `.github/workflows/ci.yml`: build, test, clippy (deny
+- [x] **CI workflow** `.github/workflows/ci.yml`: build, test, clippy (deny
   warnings), doc, `cargo audit`, `cargo deny check advisories`; matrix of
   ubuntu, macos, windows. Accept: green on all three; live tests not run.
-  Written, with an MSRV check; not yet run on GitHub (tick when green).
+  Also checks the MSRV. First green run: 2026-11-02 (run 41408465319).
 - [x] **Property tests for the path mapping** (`proptest` dev-dependency):
   for arbitrary URLs and layouts, the path starts with the root, has no
   `.`/`..`/empty segment, no segment over 200 bytes, no Windows device name.
